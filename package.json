@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@circle-fin/user-controlled-wallets": "^10.3.1",
+    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "axios": "^1.16.1",
     "ethers": "^6.16.0",
     "react": "^19.2.6",

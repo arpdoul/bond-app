@@ -9,22 +9,11 @@ async function call(body) {
   return res.json();
 }
 
-export async function createUser(userId) {
-  return call({ action: "createUser", userId });
-}
-
-export async function getUserToken(userId) {
-  return call({ action: "getUserToken", userId });
-}
-
-export async function getWallets(userToken) {
-  return call({ action: "getWallets", userToken });
-}
-
-export async function getWalletBalance(userToken, walletId) {
-  return call({ action: "getBalance", userToken, walletId });
-}
-
-export async function sendUSDC(userToken, walletId, toAddress, amount) {
-  return call({ action: "sendUSDC", userToken, walletId, toAddress, amount });
-}
+export const createUser       = (userId)                        => call({ action: "createUser", userId });
+export const getUserToken     = (userId)                        => call({ action: "getUserToken", userId });
+export const initWallet       = ()                              => call({ action: "initWallet" });
+export const getWallets       = ()                              => call({ action: "getWallets" });
+export const getWalletBalance = (walletId)                      => call({ action: "getBalance", walletId });
+export const sendUSDC         = (walletId, toAddress, amount)   => call({ action: "sendUSDC", walletId, toAddress, amount });
+export const getTransactions  = (walletId)                      => call({ action: "getTransactions", walletId });
+export const getAppId         = ()                              => call({ action: "getAppId" });
