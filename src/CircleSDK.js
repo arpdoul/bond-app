@@ -1,33 +1,27 @@
-import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-
-let sdk = null;
-
-export function getSDK() {
-  if (!sdk) {
-    sdk = new W3SSdk();
-  }
-  return sdk;
-}
-
+// Circle PIN UI is loaded via CDN script tag instead of npm
 export async function initSDK(appId) {
-  const instance = getSDK();
-  await instance.init({
-    appId,
-    settingsManagement: {
-      disableConfirmationUI: false,
-    },
+  return new Promise((resolve) => {
+    if (window.W3SSdk) {
+      const sdk = new window.W3SSdk();
+      sdk.init({ appId }).then(() => resolve(sdk));
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/@circle-fin/w3s-pw-web-sdk/dist/browser.min.js";
+      script.onload = () => {
+        const sdk = new window.W3SSdk();
+        sdk.init({ appId }).then(() => resolve(sdk));
+      };
+      document.head.appendChild(script);
+    }
   });
-  return instance;
 }
 
 export async function executeWithPIN(userToken, encryptionKey, challengeId) {
-  const instance = getSDK();
   return new Promise((resolve, reject) => {
-    instance.setAuthentication({
-      userToken,
-      encryptionKey,
-    });
-    instance.execute(challengeId, (error, result) => {
+    if (!window.W3SSdk) return reject(new Error("SDK not loaded"));
+    const sdk = new window.W3SSdk();
+    sdk.setAuthentication({ userToken, encryptionKey });
+    sdk.execute(challengeId, (error, result) => {
       if (error) return reject(error);
       resolve(result);
     });
