@@ -1,67 +1,59 @@
 import { useState, useCallback } from "react";
-import { initSDK, executeWithPIN } from "./CircleSDK.js";
 import { createUser, getUserToken, initWallet, getWallets, getWalletBalance, getAppId } from "./circle.js";
 
 export function useCircleWallet() {
-  const [wallet, setWallet]       = useState(null);
-  const [balance, setBalance]     = useState("0.00");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState(null);
-  const [status, setStatus]       = useState("idle");
+  const [wallet, setWallet]   = useState(null);
+  const [balance, setBalance] = useState("0.00");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState(null);
+  const [status, setStatus]   = useState("idle");
 
   const connect = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // 1. Get App ID from backend
+      // 1. Get App ID
       setStatus("Fetching app config...");
-      const { appId } = await getAppId();
+      const appRes = await getAppId();
+      const appId = appRes?.appId;
+      if (!appId) throw new Error("CIRCLE_APP_ID not set in Vercel env vars");
 
-      // 2. Init Circle SDK
-      setStatus("Initializing Circle SDK...");
-      await initSDK(appId);
-
-      // 3. Create user
+      // 2. Create user
       setStatus("Creating secure user...");
       const userId = `bond-${crypto.randomUUID()}`;
-      await createUser(userId);
+      const userRes = await createUser(userId);
+      if (userRes?.code) throw new Error(`Create user failed: ${userRes.message}`);
 
-      // 4. Get user token
-      setStatus("Getting user token...");
+      // 3. Get token
+      setStatus("Getting auth token...");
       const tokenRes = await getUserToken(userId);
-      const userToken     = tokenRes.data?.userToken;
-      const encryptionKey = tokenRes.data?.encryptionKey;
-      if (!userToken) throw new Error("Failed to get user token from Circle");
+      const userToken = tokenRes?.data?.userToken;
+      if (!userToken) throw new Error(`Token failed: ${JSON.stringify(tokenRes)}`);
 
-      // 5. Create wallet — triggers PIN UI
-      setStatus("Setting up wallet (PIN required)...");
+      // 4. Create wallet (developer-controlled, no PIN needed)
+      setStatus("Creating agent wallet...");
       const walletRes = await initWallet();
-      const challengeId = walletRes.data?.challengeId;
+      const wallets = walletRes?.data?.wallets || [];
 
-      if (challengeId) {
-        setStatus("Waiting for PIN...");
-        await executeWithPIN(userToken, encryptionKey, challengeId);
-      }
-
-      // 6. Fetch wallets
-      setStatus("Loading wallet...");
+      // 5. Get wallets list
+      setStatus("Loading wallet address...");
       const walletsRes = await getWallets();
-      const wallets = walletsRes.data?.wallets || [];
+      const allWallets = walletsRes?.data?.wallets || [];
 
-      if (wallets.length > 0) {
-        const w = wallets[0];
-        setWallet(w);
+      let activeWallet = allWallets[0] || wallets[0];
 
-        // 7. Get USDC balance
-        const balRes = await getWalletBalance(w.id);
-        const usdc = balRes.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
+      if (activeWallet) {
+        setWallet(activeWallet);
+        // 6. Get balance
+        setStatus("Fetching USDC balance...");
+        const balRes = await getWalletBalance(activeWallet.id);
+        const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
         setBalance(usdc?.amount || "0.00");
-        setStatus("connected");
-        return { userToken, wallet: w };
-      } else {
-        setStatus("connected");
-        return { userToken, wallet: null };
       }
+
+      setStatus("connected");
+      return { userToken, wallet: activeWallet };
+
     } catch (err) {
       setError(err.message);
       setStatus("error");
@@ -74,7 +66,7 @@ export function useCircleWallet() {
   const refreshBalance = useCallback(async () => {
     if (!wallet) return;
     const balRes = await getWalletBalance(wallet.id);
-    const usdc = balRes.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
+    const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
     setBalance(usdc?.amount || "0.00");
   }, [wallet]);
 
