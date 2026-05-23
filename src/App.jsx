@@ -206,7 +206,7 @@ export default function BondApp() {
       <div style={{flex:1,padding:"24px",maxWidth:900,margin:"0 auto",width:"100%"}}>
         {tab==="dashboard" && (
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:24}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:24}}>
               {[{label:"Total USDC Spent",value:`$${totalSpent.toFixed(4)}`,color:"#00FFB2"},{label:"Payments Made",value:`${logs.length}`,color:"#A78BFA"},{label:"Settlements",value:`${settlements.filter(s=>s.status==="settled").length}`,color:"#FF6B35"}].map((s,i)=>(
                 <div key={i} style={{background:"rgba(255,255,255,0.02)",border:"1px solid #141414",borderRadius:12,padding:"16px 18px"}}>
                   <div style={{fontSize:10,color:"#444",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>{s.label}</div>
@@ -223,7 +223,7 @@ export default function BondApp() {
                 <div style={{height:"100%",borderRadius:2,width:`${budgetUsed}%`,background:budgetUsed>80?"linear-gradient(90deg,#FF6B35,#ff3535)":"linear-gradient(90deg,#00FFB2,#00a876)",transition:"width 0.5s ease"}}/>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:24}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:24}}>
               {AGENTS.map(agent=><AgentCard key={agent.id} agent={agent} status={agentStates[agent.id].status} task={agentStates[agent.id].task} totalSpent={agentStates[agent.id].spent}/>)}
             </div>
             <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid #141414",borderRadius:12,padding:"20px",marginBottom:16}}>
