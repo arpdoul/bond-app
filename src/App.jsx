@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useCircleWallet } from "./useCircleWallet.js";
 import WalletModal from "./WalletModal.jsx";
+import PayPanel from "./PayPanel.jsx";
 
 const AGENTS = [
   { id: "alpha", name: "Agent ALPHA", role: "Researcher", color: "#00FFB2", icon: "◈" },
@@ -121,6 +122,8 @@ export default function BondApp() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddr, setWalletAddr] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showPay, setShowPay] = useState(false);
+  const [walletObj, setWalletObj] = useState(null);
   const intervalRef = useRef(null);
   const logsEndRef = useRef(null);
   const { connect, loading, error, status: walletStatus } = useCircleWallet();
@@ -163,6 +166,7 @@ export default function BondApp() {
   const handleConnected=(result)=>{
     setWalletConnected(true);
     setWalletAddr(result?.wallet?.address||generateAddress());
+    setWalletObj(result?.wallet);
     setShowModal(false);
   };
   useEffect(()=>()=>clearInterval(intervalRef.current),[]);
@@ -186,7 +190,10 @@ export default function BondApp() {
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {isRunning && <div style={{fontSize:11,color:"#00FFB2",padding:"4px 10px",borderRadius:20,border:"1px solid #00FFB222",background:"rgba(0,255,178,0.05)"}}>● LIVE</div>}
           {walletConnected
-            ? <div style={{fontSize:11,color:"#555",fontFamily:"monospace",padding:"6px 12px",border:"1px solid #1a1a1a",borderRadius:6}}>{walletAddr}</div>
+            ? <div style={{display:"flex",gap:6}}>
+    <div style={{fontSize:11,color:"#555",fontFamily:"monospace",padding:"6px 12px",border:"1px solid #1a1a1a",borderRadius:6}}>{walletAddr}</div>
+    <button onClick={()=>setShowPay(true)} style={{background:"rgba(0,255,178,0.1)",border:"1px solid #00FFB233",color:"#00FFB2",fontSize:11,fontWeight:600,padding:"6px 12px",borderRadius:6,cursor:"pointer"}}>Pay</button>
+  </div>
             : <button onClick={()=>setShowModal(true)} style={{background:"transparent",border:"1px solid #222",color:"#888",fontSize:11,fontWeight:600,padding:"6px 14px",borderRadius:6,cursor:"pointer",textTransform:"uppercase"}}>Connect Wallet</button>
           }
         </div>
@@ -295,6 +302,7 @@ export default function BondApp() {
         <div style={{fontSize:10,color:"#222",fontFamily:"monospace"}}>chain id: arc testnet · 5042002</div>
       </footer>
       {showModal && <WalletModal onClose={()=>setShowModal(false)} onConnected={handleConnected}/>}
+      {showPay && wallet && <PayPanel wallet={wallet} onClose={()=>setShowPay(false)}/>}
     </div>
   );
 }
