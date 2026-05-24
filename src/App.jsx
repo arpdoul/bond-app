@@ -164,7 +164,7 @@ export default function BondApp() {
   };
   const handleConnected=(result)=>{
     setWalletConnected(true);
-    setWalletAddr(result?.wallet?.address||generateAddress());
+    setWalletAddr(result?.wallet?.address||result?.wallet?.id||generateAddress());
     setShowModal(false);
   };
   useEffect(()=>()=>clearInterval(intervalRef.current),[]);
@@ -300,7 +300,7 @@ export default function BondApp() {
         <div style={{fontSize:10,color:"#222",fontFamily:"monospace"}}>chain id: arc testnet · 5042002</div>
       </footer>
       {showModal && <WalletModal onClose={()=>setShowModal(false)} onConnected={handleConnected}/>}
-      {showPay && <PayPanel wallet={wallet} onClose={()=>setShowPay(false)}/>}
+      {showPay && walletConnected && <PayPanel wallet={wallet} onClose={()=>setShowPay(false)}/>}
     </div>
   );
 }
