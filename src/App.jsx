@@ -127,6 +127,16 @@ export default function BondApp() {
   const logsEndRef = useRef(null);
   const { connect, disconnect, wallet, balance, loading, error, status: walletStatus } = useCircleWallet();
 
+  // Auto-restore wallet state on page load
+  useEffect(() => {
+    const savedAddr = localStorage.getItem("bond_wallet_addr");
+    const savedId   = localStorage.getItem("bond_wallet_id");
+    if (savedAddr && savedId) {
+      setWalletConnected(true);
+      setWalletAddr(savedAddr);
+    }
+  }, []);
+
   useEffect(()=>{ if(logsEndRef.current) logsEndRef.current.scrollIntoView({behavior:"smooth"}); },[logs]);
 
   const addLog = useCallback((agentId,service,amount,type,chain)=>{
