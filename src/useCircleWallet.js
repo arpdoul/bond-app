@@ -1,90 +1,104 @@
 import { useState, useCallback, useEffect } from "react";
 import { getUserToken, getWallets, getWalletBalance, createUser, initWallet, getAppId } from "./circle.js";
 
-const USER_KEY   = "bond_user_id";
-const WALLET_KEY = "bond_wallet_id";
-const ADDR_KEY   = "bond_wallet_addr";
+const KEYS = {
+  user:   "bond_uid",
+  wallet: "bond_wid",
+  addr:   "bond_waddr",
+  bal:    "bond_wbal",
+};
 
 export function useCircleWallet() {
-  const [wallet,  setWallet]  = useState(null);
-  const [balance, setBalance] = useState("0.00");
+  const [wallet,  setWallet]  = useState(() => {
+    const id   = localStorage.getItem(KEYS.wallet);
+    const addr = localStorage.getItem(KEYS.addr);
+    return id && addr ? { id, address: addr } : null;
+  });
+  const [balance, setBalance] = useState(() => localStorage.getItem(KEYS.bal) || "0.00");
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState(null);
-  const [status,  setStatus]  = useState("idle");
+  const [status,  setStatus]  = useState(() => localStorage.getItem(KEYS.wallet) ? "connected" : "idle");
 
-  // AUTO-RESTORE on page load
+  // Refresh balance on load if wallet exists
   useEffect(() => {
-    const savedId   = localStorage.getItem(WALLET_KEY);
-    const savedAddr = localStorage.getItem(ADDR_KEY);
-    if (savedId && savedAddr) {
-      setWallet({ id: savedId, address: savedAddr });
-      setStatus("connected");
-      // Refresh balance in background
-      getWalletBalance(savedId).then(balRes => {
-        const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
-        if (usdc?.amount) setBalance(usdc.amount);
-      }).catch(() => {});
-    }
+    const id = localStorage.getItem(KEYS.wallet);
+    if (!id) return;
+    getWalletBalance(id).then(r => {
+      const usdc = r?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
+      if (usdc?.amount) {
+        setBalance(usdc.amount);
+        localStorage.setItem(KEYS.bal, usdc.amount);
+      }
+    }).catch(() => {});
   }, []);
 
   const connect = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setStatus("Fetching app config...");
+      // 1. App ID check
+      setStatus("Checking config...");
       const appRes = await getAppId();
-      if (!appRes?.appId) throw new Error("CIRCLE_APP_ID missing in Vercel env vars");
+      if (!appRes?.appId) throw new Error("CIRCLE_APP_ID not set in Vercel");
 
-      // Reuse or create userId
-      let userId = localStorage.getItem(USER_KEY);
+      // 2. Reuse or create user
+      let userId = localStorage.getItem(KEYS.user);
       if (!userId) {
         userId = "bond-" + crypto.randomUUID();
-        localStorage.setItem(USER_KEY, userId);
         setStatus("Creating user...");
         await createUser(userId);
+        localStorage.setItem(KEYS.user, userId);
       } else {
-        setStatus("Restoring user...");
+        setStatus("Loading user...");
       }
 
-      setStatus("Getting auth token...");
+      // 3. Get token
+      setStatus("Authenticating...");
       const tokenRes = await getUserToken(userId);
       const userToken = tokenRes?.data?.userToken;
-      if (!userToken) throw new Error("Token failed: " + JSON.stringify(tokenRes));
+      if (!userToken) throw new Error("Auth failed: " + JSON.stringify(tokenRes));
 
-      // Load existing wallets
+      // 4. Check if we already have a saved wallet
+      const savedId   = localStorage.getItem(KEYS.wallet);
+      const savedAddr = localStorage.getItem(KEYS.addr);
+      if (savedId && savedAddr) {
+        setStatus("connected");
+        const w = { id: savedId, address: savedAddr };
+        setWallet(w);
+        // Refresh balance
+        const balRes = await getWalletBalance(savedId);
+        const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
+        const bal = usdc?.amount || "0.00";
+        setBalance(bal);
+        localStorage.setItem(KEYS.bal, bal);
+        return { userToken, wallet: w };
+      }
+
+      // 5. No saved wallet — get or create one
       setStatus("Loading wallet...");
       const walletsRes = await getWallets();
-      let allWallets = walletsRes?.data?.wallets || [];
+      let activeWallet = walletsRes?.data?.wallets?.[0];
 
-      const savedId = localStorage.getItem(WALLET_KEY);
-      let activeWallet = savedId
-        ? allWallets.find(w => w.id === savedId) || allWallets[0]
-        : allWallets[0];
-
-      // Create wallet only if none exist
       if (!activeWallet) {
-        setStatus("Creating agent wallet...");
-        const walletRes = await initWallet();
-        const created = walletRes?.data?.wallets || [];
-        activeWallet = created[0];
-        if (!activeWallet) {
-          const retry = await getWallets();
-          activeWallet = retry?.data?.wallets?.[0];
-        }
+        setStatus("Creating wallet...");
+        const created = await initWallet();
+        activeWallet = created?.data?.wallets?.[0];
       }
 
       if (!activeWallet) throw new Error("Could not create or load wallet");
 
-      // Persist wallet
-      localStorage.setItem(WALLET_KEY, activeWallet.id);
-      localStorage.setItem(ADDR_KEY,   activeWallet.address || activeWallet.id);
-
+      // 6. Save permanently
+      localStorage.setItem(KEYS.wallet, activeWallet.id);
+      localStorage.setItem(KEYS.addr,   activeWallet.address || activeWallet.id);
       setWallet(activeWallet);
 
-      setStatus("Fetching balance...");
+      // 7. Get balance
+      setStatus("Getting balance...");
       const balRes = await getWalletBalance(activeWallet.id);
       const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
-      setBalance(usdc?.amount || "0.00");
+      const bal = usdc?.amount || "0.00";
+      setBalance(bal);
+      localStorage.setItem(KEYS.bal, bal);
 
       setStatus("connected");
       return { userToken, wallet: activeWallet };
@@ -99,20 +113,21 @@ export function useCircleWallet() {
   }, []);
 
   const disconnect = useCallback(() => {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(WALLET_KEY);
-    localStorage.removeItem(ADDR_KEY);
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
     setWallet(null);
     setBalance("0.00");
     setStatus("idle");
   }, []);
 
   const refreshBalance = useCallback(async () => {
-    if (!wallet?.id) return;
-    const balRes = await getWalletBalance(wallet.id);
-    const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
-    setBalance(usdc?.amount || "0.00");
-  }, [wallet]);
+    const id = wallet?.id || localStorage.getItem(KEYS.wallet);
+    if (!id) return;
+    const r = await getWalletBalance(id);
+    const usdc = r?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
+    const bal = usdc?.amount || balance;
+    setBalance(bal);
+    localStorage.setItem(KEYS.bal, bal);
+  }, [wallet, balance]);
 
   return { connect, disconnect, refreshBalance, wallet, balance, loading, error, status };
 }

@@ -129,8 +129,8 @@ export default function BondApp() {
 
   // Auto-restore wallet state on page load
   useEffect(() => {
-    const savedAddr = localStorage.getItem("bond_wallet_addr");
-    const savedId   = localStorage.getItem("bond_wallet_id");
+    const savedAddr = localStorage.getItem("bond_waddr");
+    const savedId   = localStorage.getItem("bond_wid");
     if (savedAddr && savedId) {
       setWalletConnected(true);
       setWalletAddr(savedAddr);
