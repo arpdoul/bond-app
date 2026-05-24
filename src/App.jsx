@@ -310,7 +310,7 @@ export default function BondApp() {
         <div style={{fontSize:10,color:"#222",fontFamily:"monospace"}}>chain id: arc testnet · 5042002</div>
       </footer>
       {showModal && <WalletModal onClose={()=>setShowModal(false)} onConnected={handleConnected}/>}
-      {showPay && walletConnected && <PayPanel wallet={wallet} onClose={()=>setShowPay(false)}/>}
+      {showPay && <PayPanel onClose={()=>setShowPay(false)}/>}
     </div>
   );
 }

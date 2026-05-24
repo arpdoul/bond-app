@@ -7,7 +7,11 @@ const CHAINS = [
   { id: "BASE-SEPOLIA", label: "Base Sepolia"     },
 ];
 
-export default function PayPanel({ wallet, onClose }) {
+export default function PayPanel({ onClose }) {
+  // Read wallet directly from localStorage — always up to date
+  const walletId      = localStorage.getItem("bond_wid")   || "";
+  const walletAddress = localStorage.getItem("bond_waddr") || "";
+
   const [tab, setTab]         = useState("faucet");
   const [toAddress, setTo]    = useState("");
   const [amount, setAmount]   = useState("0.10");
@@ -16,19 +20,24 @@ export default function PayPanel({ wallet, onClose }) {
   const [result, setResult]   = useState(null);
   const [error, setError]     = useState("");
 
-  const walletId      = wallet?.id;
-  const walletAddress = wallet?.address || wallet?.id;
-
   const reset = () => { setResult(null); setError(""); };
 
+  const guard = () => {
+    if (!walletId) {
+      setError("No wallet found. Close this, connect your wallet first, then try again.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSend = async () => {
+    if (!guard()) return;
     if (!toAddress || !amount) return setError("Fill in all fields");
-    if (!walletId) return setError("Wallet not loaded yet — close and reconnect");
     setLoading(true); reset();
     try {
       const res = await sendUSDC(walletId, toAddress, amount);
       if (res?.data?.transaction || res?.data?.id) {
-        setResult({ txId: res.data.transaction?.id || res.data.id, type: "transfer" });
+        setResult({ txId: res.data?.transaction?.id || res.data?.id, type: "transfer" });
       } else {
         setError(res?.message || res?.error || JSON.stringify(res));
       }
@@ -37,13 +46,13 @@ export default function PayPanel({ wallet, onClose }) {
   };
 
   const handleCCTP = async () => {
+    if (!guard()) return;
     if (!toAddress || !amount) return setError("Fill in all fields");
-    if (!walletId) return setError("Wallet not loaded yet — close and reconnect");
     setLoading(true); reset();
     try {
       const res = await cctpTransfer(walletId, toAddress, amount, "ETH-SEPOLIA", destChain);
       if (res?.data?.transaction || res?.data?.id) {
-        setResult({ txId: res.data.transaction?.id || res.data.id, type: "cctp" });
+        setResult({ txId: res.data?.transaction?.id || res.data?.id, type: "cctp" });
       } else {
         setError(res?.message || res?.error || JSON.stringify(res));
       }
@@ -52,11 +61,11 @@ export default function PayPanel({ wallet, onClose }) {
   };
 
   const handleFaucet = async () => {
-    if (!walletAddress) return setError("Wallet not loaded yet — close and reconnect");
+    if (!guard()) return;
     setLoading(true); reset();
     try {
       const res = await requestFaucet(walletAddress);
-      if (res?.data || res?.requestId) {
+      if (res?.data || res?.requestId || res?.id) {
         setResult({ type: "faucet" });
       } else {
         setError(res?.message || res?.error || JSON.stringify(res));
@@ -66,73 +75,73 @@ export default function PayPanel({ wallet, onClose }) {
   };
 
   const S = {
-    overlay: { position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 },
-    box: { background:"#0f0f0f",border:"1px solid #1f1f1f",borderRadius:16,padding:28,width:"100%",maxWidth:380 },
-    input: { background:"rgba(255,255,255,0.04)",border:"1px solid #1f1f1f",borderRadius:8,color:"#fff",fontSize:13,padding:"10px 14px",width:"100%",outline:"none",marginBottom:10,boxSizing:"border-box" },
-    label: { fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6 },
-    tabBtn: (active) => ({ background:active?"rgba(0,255,178,0.08)":"none",border:"none",cursor:"pointer",fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 12px",borderRadius:6,color:active?"#00FFB2":"#444" }),
+    overlay: { position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,0.92)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 },
+    box:     { background:"#0f0f0f",border:"1px solid #1f1f1f",borderRadius:16,padding:24,width:"100%",maxWidth:380 },
+    input:   { background:"rgba(255,255,255,0.04)",border:"1px solid #1f1f1f",borderRadius:8,color:"#fff",fontSize:13,padding:"10px 14px",width:"100%",outline:"none",marginBottom:10,boxSizing:"border-box" },
+    label:   { fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:6 },
+    tab:     (a) => ({ background:a?"rgba(0,255,178,0.08)":"none",border:"none",cursor:"pointer",fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"8px 12px",borderRadius:6,color:a?"#00FFB2":"#444" }),
+    btn:     (c,on) => ({ width:"100%",padding:"13px",background:on?c:"#222",border:"none",color:on?(c==="#00FFB2"?"#080808":"#fff"):"#555",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:on?"pointer":"not-allowed",marginTop:4 }),
   };
+
+  const hasWallet = !!walletId;
 
   return (
     <div style={S.overlay}>
       <div style={S.box}>
+        {/* Header */}
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
           <div style={{fontSize:15,fontWeight:700,color:"#fff"}}>Agent Payment Console</div>
           <button onClick={onClose} style={{background:"none",border:"none",color:"#444",fontSize:20,cursor:"pointer"}}>×</button>
         </div>
 
         {/* Wallet status */}
-        <div style={{background:"rgba(0,255,178,0.05)",border:`1px solid ${walletId?"#00FFB222":"#FF6B3522"}`,borderRadius:8,padding:"10px 14px",marginBottom:18}}>
+        <div style={{background:"rgba(0,255,178,0.05)",border:`1px solid ${hasWallet?"#00FFB222":"#FF6B3544"}`,borderRadius:8,padding:"10px 14px",marginBottom:18}}>
           <div style={{fontSize:10,color:"#444",textTransform:"uppercase",marginBottom:4}}>Connected Wallet</div>
-          {walletId
+          {hasWallet
             ? <div style={{fontSize:11,color:"#00FFB2",fontFamily:"monospace",wordBreak:"break-all"}}>{walletAddress}</div>
-            : <div style={{fontSize:11,color:"#FF6B35"}}>No wallet — connect wallet first</div>
+            : <div style={{fontSize:12,color:"#FF6B35",fontWeight:600}}>No wallet — tap × and connect wallet first</div>
           }
         </div>
 
         {/* Tabs */}
         <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"1px solid #111",paddingBottom:10}}>
-          <button style={S.tabBtn(tab==="faucet")} onClick={()=>{setTab("faucet");reset();}}>Get USDC</button>
-          <button style={S.tabBtn(tab==="send")}   onClick={()=>{setTab("send");reset();}}>Send USDC</button>
-          <button style={S.tabBtn(tab==="cctp")}   onClick={()=>{setTab("cctp");reset();}}>Cross-Chain</button>
+          <button style={S.tab(tab==="faucet")} onClick={()=>{setTab("faucet");reset();}}>Get USDC</button>
+          <button style={S.tab(tab==="send")}   onClick={()=>{setTab("send");reset();}}>Send</button>
+          <button style={S.tab(tab==="cctp")}   onClick={()=>{setTab("cctp");reset();}}>Cross-Chain</button>
         </div>
 
-        {/* FAUCET TAB — shown first */}
+        {/* FAUCET */}
         {tab==="faucet" && (
           <div>
             <div style={{fontSize:12,color:"#555",marginBottom:16,lineHeight:1.7}}>
-              Request free testnet USDC to your wallet on ETH Sepolia. Do this first before sending.
+              Get free testnet USDC sent to your wallet on ETH Sepolia. Do this first before sending.
             </div>
             <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid #1a1a1a",borderRadius:8,padding:"12px 14px",marginBottom:16}}>
-              <div style={{fontSize:10,color:"#444",marginBottom:4}}>Receiving wallet</div>
-              <div style={{fontSize:11,color:"#fff",fontFamily:"monospace",wordBreak:"break-all"}}>{walletAddress || "No wallet connected"}</div>
+              <div style={{fontSize:10,color:"#444",marginBottom:4}}>Your wallet receives</div>
+              <div style={{fontSize:11,color:hasWallet?"#fff":"#FF6B35",fontFamily:"monospace",wordBreak:"break-all"}}>
+                {hasWallet ? walletAddress : "No wallet — connect first"}
+              </div>
             </div>
-            <button
-              onClick={handleFaucet}
-              disabled={loading || !walletId}
-              style={{width:"100%",padding:"13px",background:walletId?"#FF6B35":"#333",border:"none",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:walletId?"pointer":"not-allowed"}}>
+            <button style={S.btn("#FF6B35", hasWallet)} onClick={handleFaucet} disabled={loading||!hasWallet}>
               {loading ? "Requesting..." : "◎ Request Testnet USDC"}
             </button>
           </div>
         )}
 
-        {/* SEND TAB */}
+        {/* SEND */}
         {tab==="send" && (
           <div>
             <label style={S.label}>Destination Address</label>
             <input style={S.input} placeholder="0x..." value={toAddress} onChange={e=>setTo(e.target.value)}/>
             <label style={S.label}>Amount (USDC)</label>
             <input style={S.input} type="number" placeholder="0.10" value={amount} onChange={e=>setAmount(e.target.value)}/>
-            <button
-              onClick={handleSend}
-              disabled={loading || !walletId}
-              style={{width:"100%",padding:"13px",background:walletId?"#00FFB2":"#333",border:"none",color:walletId?"#080808":"#666",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:walletId?"pointer":"not-allowed"}}>
+            <button style={S.btn("#00FFB2", hasWallet)} onClick={handleSend} disabled={loading||!hasWallet}>
               {loading ? "Sending..." : "▶ Send USDC"}
             </button>
           </div>
         )}
 
-        {/* CCTP TAB */}
+        {/* CCTP */}
         {tab==="cctp" && (
           <div>
             <label style={S.label}>Destination Address</label>
@@ -143,10 +152,7 @@ export default function PayPanel({ wallet, onClose }) {
             <select style={{...S.input,marginBottom:12}} value={destChain} onChange={e=>setDest(e.target.value)}>
               {CHAINS.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
-            <button
-              onClick={handleCCTP}
-              disabled={loading || !walletId}
-              style={{width:"100%",padding:"13px",background:walletId?"#A78BFA":"#333",border:"none",color:"#fff",borderRadius:8,fontSize:13,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",cursor:walletId?"pointer":"not-allowed"}}>
+            <button style={S.btn("#A78BFA", hasWallet)} onClick={handleCCTP} disabled={loading||!hasWallet}>
               {loading ? "Bridging..." : "⇄ Bridge via CCTP"}
             </button>
           </div>
@@ -160,7 +166,7 @@ export default function PayPanel({ wallet, onClose }) {
             </div>
             {result.txId && <div style={{fontSize:10,color:"#444",fontFamily:"monospace",wordBreak:"break-all"}}>TX: {result.txId}</div>}
             <div style={{fontSize:10,color:"#333",marginTop:6}}>
-              {result.type==="faucet"?"USDC arrives in ~30 seconds. Refresh balance.":"May take 1-2 mins to confirm onchain."}
+              {result.type==="faucet"?"USDC arrives in ~30 seconds":"Confirms in 1-2 mins onchain"}
             </div>
           </div>
         )}
