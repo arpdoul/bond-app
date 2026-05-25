@@ -60,12 +60,18 @@ export default function PayPanel({ onClose }) {
     finally { setLoading(false); }
   };
 
+  const [faucetLinks, setFaucetLinks] = useState([]);
+
   const handleFaucet = async () => {
     if (!guard()) return;
-    setLoading(true); reset();
+    setLoading(true); reset(); setFaucetLinks([]);
     try {
       const res = await requestFaucet(walletAddress);
-      if (res?.data || res?.requestId || res?.id) {
+      if (res?.fallback) {
+        // Show direct faucet links
+        setFaucetLinks(res.links || []);
+        setError(res.message || "Use direct faucet links below");
+      } else if (res?.data || res?.requestId || res?.id) {
         setResult({ type: "faucet" });
       } else {
         setError(res?.message || res?.error || JSON.stringify(res));
@@ -179,6 +185,48 @@ export default function PayPanel({ onClose }) {
           </div>
         )}
 
+        {faucetLinks.length > 0 && (
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:11,color:"#555",marginBottom:8}}>Get USDC directly:</div>
+            {faucetLinks.map((l,i) => (
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                style={{display:"block",padding:"10px 14px",background:"rgba(255,107,53,0.08)",border:"1px solid #FF6B3533",borderRadius:8,color:"#FF6B35",fontSize:12,fontWeight:600,textDecoration:"none",marginBottom:6,textAlign:"center"}}>
+                → {l.name}
+              </a>
+            ))}
+            <div style={{fontSize:10,color:"#333",marginTop:8,textAlign:"center"}}>
+              Copy your wallet address: <span style={{color:"#00FFB2",fontFamily:"monospace",fontSize:9,wordBreak:"break-all"}}>{walletAddress}</span>
+            </div>
+          </div>
+        )}
+        {faucetLinks.length > 0 && (
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:11,color:"#555",marginBottom:8}}>Get USDC directly:</div>
+            {faucetLinks.map((l,i) => (
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                style={{display:"block",padding:"10px 14px",background:"rgba(255,107,53,0.08)",border:"1px solid #FF6B3533",borderRadius:8,color:"#FF6B35",fontSize:12,fontWeight:600,textDecoration:"none",marginBottom:6,textAlign:"center"}}>
+                → {l.name}
+              </a>
+            ))}
+            <div style={{fontSize:10,color:"#333",marginTop:8,textAlign:"center"}}>
+              Copy your wallet address: <span style={{color:"#00FFB2",fontFamily:"monospace",fontSize:9,wordBreak:"break-all"}}>{walletAddress}</span>
+            </div>
+          </div>
+        )}
+        {faucetLinks.length > 0 && (
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:11,color:"#555",marginBottom:8}}>Get USDC directly:</div>
+            {faucetLinks.map((l,i) => (
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                style={{display:"block",padding:"10px 14px",background:"rgba(255,107,53,0.08)",border:"1px solid #FF6B3533",borderRadius:8,color:"#FF6B35",fontSize:12,fontWeight:600,textDecoration:"none",marginBottom:6,textAlign:"center"}}>
+                → {l.name}
+              </a>
+            ))}
+            <div style={{fontSize:10,color:"#333",marginTop:8,textAlign:"center"}}>
+              Copy your wallet address: <span style={{color:"#00FFB2",fontFamily:"monospace",fontSize:9,wordBreak:"break-all"}}>{walletAddress}</span>
+            </div>
+          </div>
+        )}
         <div style={{textAlign:"center",marginTop:16,fontSize:10,color:"#222"}}>
           Secured by Circle · ETH Sepolia Testnet
         </div>

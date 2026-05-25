@@ -124,8 +124,13 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "requestFaucet") {
-      r = await fetch("https://api.circle.com/v1/faucet/drips", {
-        method:"POST", headers:H,
+      // Circle faucet endpoint
+      const faucetRes = await fetch("https://api.circle.com/v1/faucet/drips", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${KEY}`,
+        },
         body: JSON.stringify({
           address: toAddress,
           blockchain: "ETH-SEPOLIA",
@@ -133,7 +138,30 @@ export default async function handler(req, res) {
           usdc: true,
         }),
       });
-      d = await r.json();
+      const rawText = await faucetRes.text();
+      try {
+        d = JSON.parse(rawText);
+      } catch(e) {
+        // If Circle faucet fails, return direct faucet links instead
+        return res.status(200).json({
+          fallback: true,
+          message: "Circle faucet unavailable or rate limited",
+          links: [
+            { name: "Circle Faucet", url: `https://faucet.circle.com` },
+            { name: "Sepolia ETH Faucet", url: `https://sepoliafaucet.com` },
+          ]
+        });
+      }
+      // Rate limited
+      if (d?.code === 429 || faucetRes.status === 429) {
+        return res.status(200).json({
+          fallback: true,
+          message: "Rate limited — visit faucet directly",
+          links: [
+            { name: "Circle Faucet", url: "https://faucet.circle.com" },
+          ]
+        });
+      }
 
     } else if (action === "getTransactions") {
       r = await fetch(`${BASE}/transactions?walletIds=${walletId}&pageSize=20`, { method:"GET", headers:H });
