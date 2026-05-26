@@ -393,6 +393,7 @@ export default function BondApp() {
   const [walletAddr, setWalletAddr] = useState("");
   const [showModal, setShowModal]   = useState(false);
   const [showPay, setShowPay]       = useState(false);
+  const [showMenu, setShowMenu]     = useState(false);
   const intervalRef = useRef(null);
   const logsEndRef  = useRef(null);
   const { connect, disconnect, wallet, balance, loading, error, status: walletStatus } = useCircleWallet();
@@ -450,10 +451,10 @@ export default function BondApp() {
   const budgetUsed=Math.min((totalSpent/parseFloat(budget||1))*100,100);
 
   const TABS = [
-    { id:"trade",     label:"Trade",     icon:"◎" },
-    { id:"dashboard", label:"Dashboard", icon:"⬡" },
-    { id:"stream",    label:"Stream",    icon:"⟆" },
-    { id:"settle",    label:"Settle",    icon:"◈" },
+    { id:"trade",     label:"◎ Trade"    },
+    { id:"dashboard", label:"Dashboard"  },
+    { id:"stream",    label:"Stream"     },
+    { id:"settle",    label:"Settle"     },
   ];
 
   return (
@@ -475,21 +476,25 @@ export default function BondApp() {
 
         {/* RIGHT SIDE: Tabs + Wallet */}
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {/* HAMBURGER MENU */}
+          {/* HAMBURGER */}
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowMenu(p=>!p)}
-              style={{background:"rgba(255,255,255,0.08)",border:"1px solid #2a2a2a",borderRadius:10,padding:"10px 12px",cursor:"pointer",display:"flex",flexDirection:"column",gap:"5px",alignItems:"center",justifyContent:"center",minWidth:42,minHeight:42}}>
+              style={{background:"rgba(255,255,255,0.08)",border:"1px solid #2a2a2a",borderRadius:10,padding:"9px 11px",cursor:"pointer",display:"flex",flexDirection:"column",gap:"5px",alignItems:"center"}}>
               <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
               <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
               <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
             </button>
             {showMenu && (
-              <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"8px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
-                {TABS.map(t=>(
+              <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"6px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
+                {[
+                  {id:"trade",     label:"Trade",     icon:"◎"},
+                  {id:"dashboard", label:"Dashboard", icon:"⬡"},
+                  {id:"stream",    label:"Stream",    icon:"≋"},
+                  {id:"settle",    label:"Settle",    icon:"◈"},
+                ].map(t=>(
                   <button key={t.id} onClick={()=>{setTab(t.id);setShowMenu(false);}}
-                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:tab===t.id?"rgba(0,255,178,0.1)":"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:13,fontWeight:600,padding:"12px 14px",borderRadius:8,color:tab===t.id?"#00FFB2":"#888",textAlign:"left",marginBottom:2,transition:"all 0.15s"}}>
-                    <span style={{fontSize:16}}>{t.icon}</span>
-                    {t.label}
+                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:tab===t.id?"rgba(0,255,178,0.1)":"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:13,fontWeight:600,padding:"11px 14px",borderRadius:8,color:tab===t.id?"#00FFB2":"#888",textAlign:"left",marginBottom:2}}>
+                    <span style={{fontSize:16}}>{t.icon}</span>{t.label}
                   </button>
                 ))}
               </div>
