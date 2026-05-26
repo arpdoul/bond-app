@@ -1,18 +1,27 @@
 
 const BASE = "https://api.circle.com/v1/w3s";
 
-// Helper to get USDC token ID for a given blockchain
-async function getUSDCTokenId(blockchain, headers) {
+// Cache token IDs to avoid repeated lookups
+const tokenCache = {};
+
+async function findUSDC(blockchain, headers) {
+  if (tokenCache[blockchain]) return tokenCache[blockchain];
   const r = await fetch(`${BASE}/tokens?blockchain=${blockchain}&pageSize=50`, {
     method: "GET", headers,
   });
   const d = await r.json();
   const tokens = d.data?.tokens || [];
-  // Try exact USDC match first, then any stablecoin
   const usdc = tokens.find(t => t.symbol === "USDC")
-    || tokens.find(t => t.symbol?.includes("USD"))
-    || tokens[0];
+            || tokens.find(t => t.symbol?.startsWith("USD"))
+            || tokens[0];
+  if (usdc?.id) tokenCache[blockchain] = usdc.id;
   return usdc?.id || null;
+}
+
+async function getWalletBlockchain(walletId, headers) {
+  const r = await fetch(`${BASE}/wallets/${walletId}`, { method:"GET", headers });
+  const d = await r.json();
+  return d.data?.wallet?.blockchain || "ETH-SEPOLIA";
 }
 
 export default async function handler(req, res) {
@@ -21,14 +30,9 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const {
-    action, userId, userToken, walletId,
-    toAddress, amount, chain, destinationChain
-  } = req.body || {};
-
+  const { action, userId, walletId, toAddress, amount, chain, destinationChain } = req.body || {};
   const KEY = process.env.CIRCLE_API_KEY;
   const APP = process.env.CIRCLE_APP_ID;
-
   const H = {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${KEY}`,
@@ -41,66 +45,42 @@ export default async function handler(req, res) {
       return res.status(200).json({ appId: APP });
 
     } else if (action === "createUser") {
-      r = await fetch(`${BASE}/users`, {
-        method:"POST", headers:H,
-        body: JSON.stringify({ userId }),
-      });
+      r = await fetch(`${BASE}/users`, { method:"POST", headers:H, body:JSON.stringify({ userId }) });
       d = await r.json();
 
     } else if (action === "getUserToken") {
-      r = await fetch(`${BASE}/users/token`, {
-        method:"POST", headers:H,
-        body: JSON.stringify({ userId }),
-      });
+      r = await fetch(`${BASE}/users/token`, { method:"POST", headers:H, body:JSON.stringify({ userId }) });
       d = await r.json();
 
     } else if (action === "getWallets") {
-      r = await fetch(`${BASE}/wallets?pageSize=50`, {
-        method:"GET", headers:H,
-      });
+      r = await fetch(`${BASE}/wallets?pageSize=50`, { method:"GET", headers:H });
       d = await r.json();
 
     } else if (action === "initWallet") {
-      // Check existing walletSets
-      const wsListR = await fetch(`${BASE}/walletSets?pageSize=10`, {
-        method:"GET", headers:H,
-      });
+      const wsListR = await fetch(`${BASE}/walletSets?pageSize=10`, { method:"GET", headers:H });
       const wsListD = await wsListR.json();
       let walletSetId = wsListD.data?.walletSets?.[0]?.id;
 
       if (!walletSetId) {
         const wsR = await fetch(`${BASE}/walletSets`, {
           method:"POST", headers:H,
-          body: JSON.stringify({
-            idempotencyKey: crypto.randomUUID(),
-            name: "BOND Agent Wallets",
-          }),
+          body: JSON.stringify({ idempotencyKey: crypto.randomUUID(), name: "BOND Wallets" }),
         });
         const wsD = await wsR.json();
         walletSetId = wsD.data?.walletSet?.id;
       }
 
-      if (!walletSetId) {
-        return res.status(500).json({ error: "Could not get or create walletSet" });
-      }
-
-      // Check existing wallets
-      const wListR = await fetch(`${BASE}/wallets?walletSetId=${walletSetId}&pageSize=10`, {
-        method:"GET", headers:H,
-      });
+      const wListR = await fetch(`${BASE}/wallets?walletSetId=${walletSetId}&pageSize=10`, { method:"GET", headers:H });
       const wListD = await wListR.json();
       const existing = wListD.data?.wallets?.[0];
-      if (existing) {
-        return res.status(200).json({ data: { wallets: [existing] } });
-      }
+      if (existing) return res.status(200).json({ data: { wallets: [existing] } });
 
-      // Create new wallet — try ARB-SEPOLIA (Circle supported testnet)
       r = await fetch(`${BASE}/wallets`, {
         method:"POST", headers:H,
         body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(),
-          accountType: "SCA",
-          blockchains: ["ARB-SEPOLIA"],
+          accountType: "EOA",
+          blockchains: ["ETH-SEPOLIA"],
           count: 1,
           walletSetId,
         }),
@@ -108,31 +88,30 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "getBalance") {
-      r = await fetch(`${BASE}/wallets/${walletId}/balances`, {
-        method:"GET", headers:H,
-      });
+      r = await fetch(`${BASE}/wallets/${walletId}/balances`, { method:"GET", headers:H });
       d = await r.json();
 
     } else if (action === "listTokens") {
-      // List all available tokens so frontend can debug
-      const blockchain = req.body.blockchain || "ARB-SEPOLIA";
-      r = await fetch(`${BASE}/tokens?blockchain=${blockchain}&pageSize=50`, {
-        method:"GET", headers:H,
-      });
+      // Debug: list all tokens for a blockchain
+      const bc = chain || "ETH-SEPOLIA";
+      r = await fetch(`${BASE}/tokens?blockchain=${bc}&pageSize=50`, { method:"GET", headers:H });
       d = await r.json();
+      const tokens = d.data?.tokens?.map(t => ({ id:t.id, symbol:t.symbol, blockchain:t.blockchain }));
+      return res.status(200).json({ tokens });
 
     } else if (action === "sendUSDC") {
-      // Get wallet info to find its blockchain
-      const wR = await fetch(`${BASE}/wallets/${walletId}`, {
-        method:"GET", headers:H,
-      });
-      const wD = await wR.json();
-      const blockchain = wD.data?.wallet?.blockchain || "ARB-SEPOLIA";
+      // Get wallet blockchain first
+      const blockchain = await getWalletBlockchain(walletId, H);
+      const tokenId = await findUSDC(blockchain, H);
 
-      const tokenId = await getUSDCTokenId(blockchain, H);
       if (!tokenId) {
+        // List available tokens for debugging
+        const tR = await fetch(`${BASE}/tokens?blockchain=${blockchain}&pageSize=50`, { method:"GET", headers:H });
+        const tD = await tR.json();
         return res.status(400).json({
-          error: `No USDC token found on ${blockchain}. Available tokens listed.`,
+          error: `No USDC on ${blockchain}`,
+          availableTokens: tD.data?.tokens?.map(t=>t.symbol) || [],
+          blockchain,
         });
       }
 
@@ -140,7 +119,7 @@ export default async function handler(req, res) {
         method:"POST", headers:H,
         body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(),
-          amounts: [amount.toString()],
+          amounts: [parseFloat(amount).toFixed(6)],
           destinationAddress: toAddress,
           feeLevel: "MEDIUM",
           tokenId,
@@ -150,17 +129,15 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "cctpTransfer") {
-      const srcChain = chain || "ARB-SEPOLIA";
-      const tokenId = await getUSDCTokenId(srcChain, H);
-      if (!tokenId) {
-        return res.status(400).json({ error: `No USDC token on ${srcChain}` });
-      }
+      const srcChain = chain || "ETH-SEPOLIA";
+      const tokenId = await findUSDC(srcChain, H);
+      if (!tokenId) return res.status(400).json({ error: `No USDC on ${srcChain}` });
 
       r = await fetch(`${BASE}/transactions/transfer`, {
         method:"POST", headers:H,
         body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(),
-          amounts: [amount.toString()],
+          amounts: [parseFloat(amount).toFixed(6)],
           destinationAddress: toAddress,
           feeLevel: "MEDIUM",
           tokenId,
@@ -170,44 +147,18 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "requestFaucet") {
-      // Try Circle faucet
-      const fR = await fetch("https://api.circle.com/v1/faucet/drips", {
-        method:"POST", headers:H,
-        body: JSON.stringify({
-          address: toAddress,
-          blockchain: "ARB-SEPOLIA",
-          native: false,
-          usdc: true,
-        }),
+      return res.status(200).json({
+        fallback: true,
+        message: "Get testnet USDC — paste your wallet address at these faucets:",
+        address: toAddress,
+        links: [
+          { name: "Circle USDC Faucet", url: "https://faucet.circle.com" },
+          { name: "Alchemy ETH Faucet", url: "https://www.alchemy.com/faucets/ethereum-sepolia" },
+        ],
       });
-      const raw = await fR.text();
-      try {
-        d = JSON.parse(raw);
-        if (fR.status === 403 || fR.status === 429 || d?.code === 403) {
-          return res.status(200).json({
-            fallback: true,
-            message: "Use external faucet — Circle faucet requires special access",
-            links: [
-              { name: "Circle Faucet (USDC)", url: "https://faucet.circle.com" },
-              { name: "Arbitrum Sepolia Faucet", url: "https://www.alchemy.com/faucets/arbitrum-sepolia" },
-            ],
-          });
-        }
-      } catch(e) {
-        return res.status(200).json({
-          fallback: true,
-          message: "Use external faucet to get testnet USDC",
-          links: [
-            { name: "Circle Faucet (USDC)", url: "https://faucet.circle.com" },
-            { name: "Arbitrum Sepolia Faucet", url: "https://www.alchemy.com/faucets/arbitrum-sepolia" },
-          ],
-        });
-      }
 
     } else if (action === "getTransactions") {
-      r = await fetch(`${BASE}/transactions?walletIds=${walletId}&pageSize=20`, {
-        method:"GET", headers:H,
-      });
+      r = await fetch(`${BASE}/transactions?walletIds=${walletId}&pageSize=20`, { method:"GET", headers:H });
       d = await r.json();
 
     } else {
@@ -216,6 +167,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json(d);
   } catch(err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 }

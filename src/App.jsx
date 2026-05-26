@@ -450,10 +450,10 @@ export default function BondApp() {
   const budgetUsed=Math.min((totalSpent/parseFloat(budget||1))*100,100);
 
   const TABS = [
-    { id:"trade",     label:"◎ Trade"    },
-    { id:"dashboard", label:"Dashboard"  },
-    { id:"stream",    label:"Stream"     },
-    { id:"settle",    label:"Settle"     },
+    { id:"trade",     label:"Trade",     icon:"◎" },
+    { id:"dashboard", label:"Dashboard", icon:"⬡" },
+    { id:"stream",    label:"Stream",    icon:"⟆" },
+    { id:"settle",    label:"Settle",    icon:"◈" },
   ];
 
   return (
@@ -475,13 +475,25 @@ export default function BondApp() {
 
         {/* RIGHT SIDE: Tabs + Wallet */}
         <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {/* TABS IN TOP RIGHT */}
-          <div style={{display:"flex",gap:2,background:"rgba(255,255,255,0.03)",border:"1px solid #1a1a1a",borderRadius:8,padding:"3px"}}>
-            {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{background:tab===t.id?"rgba(0,255,178,0.1)":"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:10,fontWeight:600,letterSpacing:"0.05em",padding:"5px 10px",borderRadius:6,color:tab===t.id?"#00FFB2":"#444",transition:"all 0.2s",whiteSpace:"nowrap"}}>
-                {t.label}
-              </button>
-            ))}
+          {/* HAMBURGER MENU */}
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setShowMenu(p=>!p)}
+              style={{background:"rgba(255,255,255,0.08)",border:"1px solid #2a2a2a",borderRadius:10,padding:"10px 12px",cursor:"pointer",display:"flex",flexDirection:"column",gap:"5px",alignItems:"center",justifyContent:"center",minWidth:42,minHeight:42}}>
+              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
+              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
+              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
+            </button>
+            {showMenu && (
+              <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"8px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
+                {TABS.map(t=>(
+                  <button key={t.id} onClick={()=>{setTab(t.id);setShowMenu(false);}}
+                    style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:tab===t.id?"rgba(0,255,178,0.1)":"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:13,fontWeight:600,padding:"12px 14px",borderRadius:8,color:tab===t.id?"#00FFB2":"#888",textAlign:"left",marginBottom:2,transition:"all 0.15s"}}>
+                    <span style={{fontSize:16}}>{t.icon}</span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Wallet */}
