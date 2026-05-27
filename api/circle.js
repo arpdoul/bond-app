@@ -1,6 +1,13 @@
 
 const BASE = "https://api.circle.com/v1/w3s";
 
+// Arc Testnet USDC — hardcoded from Circle API
+// ERC20 USDC (6 decimals) — use for transfers
+const ARC_USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
+// Native USDC (18 decimals) — fallback
+const ARC_USDC_NATIVE_ID = "15dc2b5d-0994-58b0-bf8c-3a0501148ee8";
+const ARC_BLOCKCHAIN = "ARC-TESTNET";
+
 // Cache token IDs to avoid repeated lookups
 const tokenCache = {};
 
@@ -88,7 +95,8 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "getBalance") {
-      r = await fetch(`${BASE}/wallets/${walletId}/balances`, { method:"GET", headers:H });
+      const wid = walletId || req.body.walletId;
+      r = await fetch(`${BASE}/wallets/${wid}/balances`, { method:"GET", headers:H });
       d = await r.json();
 
     } else if (action === "listTokens") {
@@ -100,21 +108,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ tokens });
 
     } else if (action === "sendUSDC") {
-      // Get wallet blockchain first
-      const blockchain = await getWalletBlockchain(walletId, H);
-      const tokenId = await findUSDC(blockchain, H);
-
-      if (!tokenId) {
-        // List available tokens for debugging
-        const tR = await fetch(`${BASE}/tokens?blockchain=${blockchain}&pageSize=50`, { method:"GET", headers:H });
-        const tD = await tR.json();
-        return res.status(400).json({
-          error: `No USDC on ${blockchain}`,
-          availableTokens: tD.data?.tokens?.map(t=>t.symbol) || [],
-          blockchain,
-        });
-      }
-
+      // Use hardcoded Arc testnet USDC ERC20 token ID
       r = await fetch(`${BASE}/transactions/transfer`, {
         method:"POST", headers:H,
         body: JSON.stringify({
@@ -122,11 +116,26 @@ export default async function handler(req, res) {
           amounts: [parseFloat(amount).toFixed(6)],
           destinationAddress: toAddress,
           feeLevel: "MEDIUM",
-          tokenId,
+          tokenId: ARC_USDC_TOKEN_ID,
           walletId,
         }),
       });
       d = await r.json();
+      // If ERC20 fails, try native token
+      if (d?.code && d.code !== 0) {
+        const r2 = await fetch(`${BASE}/transactions/transfer`, {
+          method:"POST", headers:H,
+          body: JSON.stringify({
+            idempotencyKey: crypto.randomUUID(),
+            amounts: [parseFloat(amount).toFixed(18)],
+            destinationAddress: toAddress,
+            feeLevel: "MEDIUM",
+            tokenId: ARC_USDC_NATIVE_ID,
+            walletId,
+          }),
+        });
+        d = await r2.json();
+      }
 
     } else if (action === "cctpTransfer") {
       const srcChain = chain || "ETH-SEPOLIA";

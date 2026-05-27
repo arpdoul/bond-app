@@ -228,7 +228,7 @@ export default function PayPanel({ onClose }) {
           </div>
         )}
         <div style={{textAlign:"center",marginTop:16,fontSize:10,color:"#222"}}>
-          Secured by Circle · ETH Sepolia Testnet
+          Secured by Circle · Arc Testnet · 5042002
         </div>
       </div>
     </div>
