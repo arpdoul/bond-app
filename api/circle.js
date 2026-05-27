@@ -7,6 +7,32 @@ const ARC_USDC_TOKEN_ID = "ef87c8c3-85de-598a-af50-c5135eecfa74";
 // Native USDC (18 decimals) — fallback
 const ARC_USDC_NATIVE_ID = "15dc2b5d-0994-58b0-bf8c-3a0501148ee8";
 const ARC_BLOCKCHAIN = "ARC-TESTNET";
+// Primary wallet - hardcoded for reliability
+const PRIMARY_WALLET_ID = "0b3d7f45-1331-5c27-8657-04ea23838079";
+
+// Generate entity secret ciphertext for signing
+async function getEntityCiphertext() {
+  const entitySecret = process.env.ENTITY_SECRET;
+  if (!entitySecret) throw new Error("ENTITY_SECRET not set in Vercel env vars");
+
+  // Fetch Circle public key
+  const pkR = await fetch(`${BASE}/config/entity/publicKey`, {
+    headers: { "Authorization": `Bearer ${process.env.CIRCLE_API_KEY}` }
+  });
+  const pkD = await pkR.json();
+  const publicKey = pkD.data?.publicKey;
+  if (!publicKey) throw new Error("Could not fetch Circle public key");
+
+  // CRITICAL: decode hex string to raw 32 bytes before encrypting
+  const secretBytes = Buffer.from(entitySecret, 'hex');
+  
+  const crypto = await import('node:crypto');
+  const encrypted = crypto.publicEncrypt(
+    { key: publicKey, padding: crypto.constants.RSA_PKCS1_OAEP_PADDING, oaepHash: "sha256" },
+    secretBytes
+  );
+  return encrypted.toString("base64");
+}
 
 // Cache token IDs to avoid repeated lookups
 const tokenCache = {};
@@ -108,16 +134,11 @@ export default async function handler(req, res) {
 
     } else if (action === "sendUSDC") {
       // Resolve walletId - use provided or fetch first wallet
-      let wid = walletId;
-      if (!wid) {
-        const wR = await fetch(`${BASE}/wallets?pageSize=1`, { method:"GET", headers:H });
-        const wD = await wR.json();
-        wid = wD.data?.wallets?.[0]?.id;
-      }
-      if (!wid) return res.status(400).json({ error: "No wallet found" });
+      const wid = PRIMARY_WALLET_ID;
+      const ciphertext = await getEntityCiphertext();
 
-      // Try ERC20 USDC first (6 decimals)
-      r = await fetch(`${BASE}/transactions/transfer`, {
+      // Try ERC20 USDC (6 decimals)
+      r = await fetch(`${BASE}/developer/transactions/transfer`, {
         method:"POST", headers:H,
         body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(),
@@ -126,12 +147,13 @@ export default async function handler(req, res) {
           feeLevel: "MEDIUM",
           tokenId: ARC_USDC_TOKEN_ID,
           walletId: wid,
+          entitySecretCiphertext: ciphertext,
         }),
       });
       d = await r.json();
-      // If ERC20 fails, try native USDC (18 decimals)
+      // If ERC20 fails try native USDC (18 decimals)
       if (d?.code && d.code !== 0) {
-        const r2 = await fetch(`${BASE}/transactions/transfer`, {
+        const r2 = await fetch(`${BASE}/developer/transactions/transfer`, {
           method:"POST", headers:H,
           body: JSON.stringify({
             idempotencyKey: crypto.randomUUID(),
@@ -140,6 +162,7 @@ export default async function handler(req, res) {
             feeLevel: "MEDIUM",
             tokenId: ARC_USDC_NATIVE_ID,
             walletId: wid,
+            entitySecretCiphertext: ciphertext,
           }),
         });
         d = await r2.json();
