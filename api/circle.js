@@ -95,8 +95,7 @@ export default async function handler(req, res) {
       d = await r.json();
 
     } else if (action === "getBalance") {
-      const wid = walletId || req.body.walletId;
-      r = await fetch(`${BASE}/wallets/${wid}/balances`, { method:"GET", headers:H });
+      r = await fetch(`${BASE}/wallets/${walletId}/balances`, { method:"GET", headers:H });
       d = await r.json();
 
     } else if (action === "listTokens") {
@@ -108,7 +107,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ tokens });
 
     } else if (action === "sendUSDC") {
-      // Use hardcoded Arc testnet USDC ERC20 token ID
+      // Resolve walletId - use provided or fetch first wallet
+      let wid = walletId;
+      if (!wid) {
+        const wR = await fetch(`${BASE}/wallets?pageSize=1`, { method:"GET", headers:H });
+        const wD = await wR.json();
+        wid = wD.data?.wallets?.[0]?.id;
+      }
+      if (!wid) return res.status(400).json({ error: "No wallet found" });
+
+      // Try ERC20 USDC first (6 decimals)
       r = await fetch(`${BASE}/transactions/transfer`, {
         method:"POST", headers:H,
         body: JSON.stringify({
@@ -117,21 +125,21 @@ export default async function handler(req, res) {
           destinationAddress: toAddress,
           feeLevel: "MEDIUM",
           tokenId: ARC_USDC_TOKEN_ID,
-          walletId,
+          walletId: wid,
         }),
       });
       d = await r.json();
-      // If ERC20 fails, try native token
+      // If ERC20 fails, try native USDC (18 decimals)
       if (d?.code && d.code !== 0) {
         const r2 = await fetch(`${BASE}/transactions/transfer`, {
           method:"POST", headers:H,
           body: JSON.stringify({
             idempotencyKey: crypto.randomUUID(),
-            amounts: [parseFloat(amount).toFixed(18)],
+            amounts: [parseFloat(amount).toFixed(6)],
             destinationAddress: toAddress,
             feeLevel: "MEDIUM",
             tokenId: ARC_USDC_NATIVE_ID,
-            walletId,
+            walletId: wid,
           }),
         });
         d = await r2.json();

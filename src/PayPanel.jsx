@@ -120,7 +120,7 @@ export default function PayPanel({ onClose }) {
         {tab==="faucet" && (
           <div>
             <div style={{fontSize:12,color:"#555",marginBottom:16,lineHeight:1.7}}>
-              Get free testnet USDC sent to your wallet on ETH Sepolia. Do this first before sending.
+              Get free testnet USDC sent to your wallet on Arc Testnet. You already have 20 USDC — use Send tab to transfer.
             </div>
             <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid #1a1a1a",borderRadius:8,padding:"12px 14px",marginBottom:16}}>
               <div style={{fontSize:10,color:"#444",marginBottom:4}}>Your wallet receives</div>
