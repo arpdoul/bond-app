@@ -11,7 +11,8 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
+        "anthropic-beta": "messages-2023-06-01",
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -41,6 +42,7 @@ Keep replies under 2 sentences. No markdown.`,
     const text = data.content?.[0]?.text || "Sorry, I couldn't process that.";
     return res.status(200).json({ text });
   } catch(err) {
-    return res.status(500).json({ error: err.message });
+    console.error("Agent error:", err);
+    return res.status(500).json({ error: err.message, hint: "Check ANTHROPIC_API_KEY in Vercel env vars" });
   }
 }

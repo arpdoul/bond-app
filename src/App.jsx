@@ -493,6 +493,7 @@ export default function BondApp() {
             {showMenu && (
               <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"6px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
                 {[
+                  {id:"agent",     label:"Agent",     icon:"⟁"},
                   {id:"trade",     label:"Trade",     icon:"◎"},
                   {id:"dashboard", label:"Dashboard", icon:"⬡"},
                   {id:"stream",    label:"Stream",    icon:"≋"},
