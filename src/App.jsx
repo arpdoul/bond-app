@@ -480,10 +480,15 @@ export default function BondApp() {
           {/* HAMBURGER */}
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowMenu(p=>!p)}
-              style={{background:"rgba(255,255,255,0.08)",border:"1px solid #2a2a2a",borderRadius:10,padding:"9px 11px",cursor:"pointer",display:"flex",flexDirection:"column",gap:"5px",alignItems:"center"}}>
-              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
-              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
-              <div style={{width:18,height:2,background:"#fff",borderRadius:1}}/>
+              style={{background:"rgba(255,255,255,0.08)",border:"1px solid #2a2a2a",borderRadius:10,padding:"8px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+              <div style={{display:"flex",flexDirection:"column",gap:"4px"}}>
+                <div style={{width:16,height:2,background:"#fff",borderRadius:1}}/>
+                <div style={{width:16,height:2,background:"#fff",borderRadius:1}}/>
+                <div style={{width:16,height:2,background:"#fff",borderRadius:1}}/>
+              </div>
+              <span style={{fontSize:11,color:"#00FFB2",fontWeight:600,letterSpacing:"0.06em"}}>
+                {TABS.find(t=>t.id===tab)?.label || "Menu"}
+              </span>
             </button>
             {showMenu && (
               <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"6px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>

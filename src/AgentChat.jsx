@@ -46,41 +46,18 @@ function parseIntent(text) {
 }
 
 async function askAI(messages, walletAddress, balance) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("/api/agent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: `You are BOND Agent — an autonomous USDC payment AI on Arc testnet.
-Your job: help users send USDC and bridge across chains via natural language.
-
-User wallet: ${walletAddress || "not connected"}
-Current USDC balance: ${balance || "0"} USDC
-Supported chains: Arc Testnet, Polygon Amoy, Arbitrum Sepolia, Base Sepolia
-
-When user wants to send USDC:
-- Extract: amount, destination address, chain
-- Confirm details before executing
-- Reply in JSON when ready to execute:
-{"action":"send","amount":"X","to":"0x...","confirmed":true}
-
-When user wants to bridge:
-- Extract: amount, destination chain
-- Reply in JSON when ready:
-{"action":"bridge","amount":"X","to":"0x...","destChain":"CHAIN-ID","confirmed":true}
-
-When user asks balance:
-- Reply with their balance info naturally
-
-For anything else: be helpful and explain what BOND can do.
-Always be concise — this is a mobile app. Max 2-3 sentences.
-Never include markdown. Plain text only.`,
       messages: messages.map(m => ({ role: m.role, content: m.content })),
+      walletAddress,
+      balance,
     }),
   });
   const data = await res.json();
-  return data.content?.[0]?.text || "I couldn't process that. Try again.";
+  if (data.error) throw new Error(data.error);
+  return data.text || "I couldn't process that. Try again.";
 }
 
 export default function AgentChat({ walletConnected, walletAddress, balance, onBalanceRefresh }) {
