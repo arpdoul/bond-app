@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useCircleWallet } from "./useCircleWallet.js";
 import WalletModal from "./WalletModal.jsx";
 import PayPanel from "./PayPanel.jsx";
+import AgentChat from "./AgentChat.jsx";
 
 const AGENTS = [
   { id: "alpha", name: "Agent ALPHA", role: "Researcher", color: "#00FFB2", icon: "◈" },
@@ -375,7 +376,7 @@ function TradeAgent({ walletConnected, onOpenPay }) {
 
 // ── MAIN APP ──────────────────────────────────────────────────────────
 export default function BondApp() {
-  const [tab, setTab]               = useState("trade");
+  const [tab, setTab]               = useState("agent");
   const [isRunning, setIsRunning]   = useState(false);
   const [task, setTask]             = useState(TASKS[0]);
   const [budget, setBudget]         = useState("5.00");
@@ -517,6 +518,16 @@ export default function BondApp() {
 
       {/* ── CONTENT ── */}
       <div style={{flex:1,padding:"20px",maxWidth:900,margin:"0 auto",width:"100%",boxSizing:"border-box"}}>
+
+        {/* AGENT TAB */}
+        {tab==="agent" && (
+          <AgentChat
+            walletConnected={walletConnected}
+            walletAddress={walletAddr}
+            balance={balance}
+            onBalanceRefresh={() => {}}
+          />
+        )}
 
         {/* TRADE TAB */}
         {tab==="trade" && (
