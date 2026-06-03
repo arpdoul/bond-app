@@ -462,7 +462,7 @@ export default function BondApp() {
     <div style={{minHeight:"100vh",background:"#080808",color:"#fff",fontFamily:"sans-serif",display:"flex",flexDirection:"column"}}>
 
       {/* ── HEADER ── */}
-      <header style={{padding:"12px 20px",borderBottom:"1px solid #111",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(8,8,8,0.97)",position:"sticky",top:0,zIndex:100}}>
+      <header style={{padding:"10px 12px",borderBottom:"1px solid #111",display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(8,8,8,0.97)",position:"sticky",top:0,zIndex:100,overflow:"hidden"}}>
         {/* Logo */}
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{position:"relative"}}>
@@ -470,13 +470,12 @@ export default function BondApp() {
             {isRunning && <div style={{position:"absolute",top:-2,right:-2,width:7,height:7,borderRadius:"50%",background:"#00FFB2",boxShadow:"0 0 6px #00FFB2"}}/>}
           </div>
           <div>
-            <div style={{fontSize:20,letterSpacing:"0.12em",lineHeight:1,color:"#fff",fontWeight:900}}>BOND</div>
-            <div style={{fontSize:8,color:"#333",letterSpacing:"0.15em",textTransform:"uppercase"}}>Autonomous Commerce Agent</div>
+            <div style={{fontSize:18,letterSpacing:"0.1em",lineHeight:1,color:"#fff",fontWeight:900}}>BOND</div>
           </div>
         </div>
 
         {/* RIGHT SIDE: Tabs + Wallet */}
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
+        <div style={{display:"flex",alignItems:"center",gap:4,flexShrink:0}}>
           {/* HAMBURGER */}
           <div style={{position:"relative"}}>
             <button onClick={()=>setShowMenu(p=>!p)}
@@ -512,12 +511,12 @@ export default function BondApp() {
           {isRunning && <div style={{fontSize:10,color:"#00FFB2",padding:"3px 8px",borderRadius:20,border:"1px solid #00FFB222",background:"rgba(0,255,178,0.05)"}}>● LIVE</div>}
           {walletConnected
             ? <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                <div style={{fontSize:10,color:"#555",fontFamily:"monospace",padding:"5px 10px",border:"1px solid #1a1a1a",borderRadius:6,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {walletAddr.slice(0,8)}... · <span style={{color:"#00FFB2"}}>{balance} USDC</span>
+                <div style={{fontSize:9,color:"#555",fontFamily:"monospace",padding:"4px 8px",border:"1px solid #1a1a1a",borderRadius:6,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {walletAddr.slice(0,6)}... · <span style={{color:"#00FFB2"}}>{balance}</span>
                 </div>
                 <button onClick={()=>setShowPay(true)} style={{background:"rgba(0,255,178,0.1)",border:"1px solid #00FFB233",color:"#00FFB2",fontSize:10,fontWeight:600,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>Pay</button>
               </div>
-            : <button onClick={()=>setShowModal(true)} style={{background:"transparent",border:"1px solid #222",color:"#888",fontSize:10,fontWeight:600,padding:"5px 12px",borderRadius:6,cursor:"pointer",textTransform:"uppercase"}}>Connect</button>
+            : <button onClick={()=>setShowModal(true)} style={{background:"#00FFB211",border:"1px solid #00FFB233",color:"#00FFB2",fontSize:10,fontWeight:700,padding:"6px 12px",borderRadius:6,cursor:"pointer",textTransform:"uppercase",whiteSpace:"nowrap"}}>Connect</button>
           }
         </div>
       </header>
