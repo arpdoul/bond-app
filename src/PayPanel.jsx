@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { sendUSDC, cctpTransfer, requestFaucet } from "./circle.js";
+import { sendUSDCWeb3, getUSDCBalance } from "./wallet.js";
+import { cctpTransfer, requestFaucet } from "./circle.js";
 
 const CHAINS = [
   { id: "MATIC-AMOY",   label: "Polygon Amoy"    },
@@ -35,7 +36,8 @@ export default function PayPanel({ onClose }) {
     if (!toAddress || !amount) return setError("Fill in all fields");
     setLoading(true); reset();
     try {
-      const res = await sendUSDC(walletId, toAddress, amount);
+      const txHash = await sendUSDCWeb3(walletAddress, toAddress, amount);
+      const res = { data: { transaction: { id: txHash }, id: txHash } };
       if (res?.data?.transaction || res?.data?.id) {
         setResult({ txId: res.data?.transaction?.id || res.data?.id, type: "transfer" });
       } else {

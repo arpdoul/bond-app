@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { sendUSDC, cctpTransfer } from "./circle.js";
+import { sendUSDCWeb3 } from "./wallet.js";
+import { cctpTransfer } from "./circle.js";
 
 const CHAINS = [
   { id: "MATIC-AMOY",   label: "Polygon"   },
@@ -89,11 +90,12 @@ export default function AgentChat({ walletConnected, walletAddress, balance, onB
       let res;
       if (action.action === "send") {
         addMsg("assistant", `Executing: sending ${action.amount} USDC to ${action.to.slice(0,10)}... on Arc testnet`);
-        res = await sendUSDC(
-          localStorage.getItem("bond_wid"),
+        const txHash = await sendUSDCWeb3(
+          localStorage.getItem("bond_waddr"),
           action.to,
           action.amount
         );
+        res = { data: { transaction: { id: txHash }, id: txHash } };
       } else if (action.action === "bridge") {
         addMsg("assistant", `Bridging ${action.amount} USDC to ${action.destChain}...`);
         res = await cctpTransfer(

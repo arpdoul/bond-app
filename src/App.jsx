@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useCircleWallet } from "./useCircleWallet.js";
+import { getUSDCBalance, onAccountChange } from "./wallet.js";
 import WalletModal from "./WalletModal.jsx";
 import PayPanel from "./PayPanel.jsx";
 import AgentChat from "./AgentChat.jsx";
@@ -397,7 +397,7 @@ export default function BondApp() {
   const [showMenu, setShowMenu]     = useState(false);
   const intervalRef = useRef(null);
   const logsEndRef  = useRef(null);
-  const { connect, disconnect, wallet, balance, loading, error, status: walletStatus } = useCircleWallet();
+  const [balance, setBalance] = useState(localStorage.getItem("bond_wbal") || "0.00");
 
   useEffect(() => {
     const savedAddr = localStorage.getItem("bond_waddr");
@@ -444,9 +444,27 @@ export default function BondApp() {
     setAgentStates(prev=>Object.fromEntries(Object.entries(prev).map(([k,v])=>[k,{...v,status:"idle",task:null}])));
   };
   const handleConnected=(result)=>{
+    const addr = result?.wallet?.address || result?.wallet?.id || generateAddress();
     setWalletConnected(true);
-    setWalletAddr(result?.wallet?.address||result?.wallet?.id||generateAddress());
+    setWalletAddr(addr);
+    setBalance(result?.balance || localStorage.getItem("bond_wbal") || "0.00");
     setShowModal(false);
+    // Listen for account changes
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
+        if (accounts.length === 0) {
+          setWalletConnected(false);
+          setWalletAddr("");
+        } else {
+          setWalletAddr(accounts[0]);
+          localStorage.setItem("bond_waddr", accounts[0]);
+          getUSDCBalance(accounts[0]).then(bal => {
+            setBalance(bal);
+            localStorage.setItem("bond_wbal", bal);
+          });
+        }
+      });
+    }
   };
   useEffect(()=>()=>clearInterval(intervalRef.current),[]);
   const budgetUsed=Math.min((totalSpent/parseFloat(budget||1))*100,100);

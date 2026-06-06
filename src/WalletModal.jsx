@@ -1,176 +1,138 @@
 import { useState } from "react";
+import { connectWallet, getUSDCBalance, ARC_TESTNET } from "./wallet.js";
+
+const WALLETS = [
+  { id: "metamask",  name: "MetaMask",        icon: "🦊", desc: "Browser extension" },
+  { id: "trust",     name: "Trust Wallet",     icon: "🛡️", desc: "Mobile wallet"     },
+  { id: "coinbase",  name: "Coinbase Wallet",  icon: "🔵", desc: "Browser extension" },
+  { id: "injected",  name: "Other Wallet",     icon: "🔗", desc: "Any injected wallet" },
+];
 
 export default function WalletModal({ onClose, onConnected }) {
-  const [step, setStep]         = useState("idle");
-  const [status, setStatus]     = useState("");
-  const [localError, setError]  = useState("");
+  const [step, setStep]       = useState("select");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
 
   const handleConnect = async () => {
-    setStep("connecting");
+    setLoading(true);
     setError("");
+    setStep("connecting");
     try {
-      // Step 1: App ID
-      setStatus("Checking config...");
-      const appRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "getAppId" }),
-      }).then(r => r.json());
-      if (!appRes?.appId) throw new Error("App not configured");
+      const address = await connectWallet();
+      setStep("switching");
+      const balance = await getUSDCBalance(address);
 
-      // Step 2: Create or reuse user
-      setStatus("Creating account...");
-      let userId = localStorage.getItem("bond_uid");
-      if (!userId) {
-        userId = "bond-" + crypto.randomUUID();
-        await fetch("/api/circle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "createUser", userId }),
-        });
-        localStorage.setItem("bond_uid", userId);
-      }
-
-      // Step 3: Get token
-      setStatus("Authenticating...");
-      const tokenRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "getUserToken", userId }),
-      }).then(r => r.json());
-
-      const userToken = tokenRes?.data?.userToken;
-      if (!userToken) throw new Error("Auth failed: " + JSON.stringify(tokenRes));
-      localStorage.setItem("bond_utoken", userToken);
-
-      // Step 4: Check existing wallets
-      setStatus("Loading wallet...");
-      const walletsRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "getWallets", userToken }),
-      }).then(r => r.json());
-
-      let activeWallet = walletsRes?.data?.wallets?.[0];
-
-      // Step 5: Create wallet if none
-      if (!activeWallet) {
-        setStatus("Creating wallet...");
-        const walletRes = await fetch("/api/circle", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "initWallet", userToken }),
-        }).then(r => r.json());
-        activeWallet = walletRes?.data?.wallets?.[0];
-
-        if (!activeWallet) {
-          // Retry fetch
-          const retry = await fetch("/api/circle", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "getWallets", userToken }),
-          }).then(r => r.json());
-          activeWallet = retry?.data?.wallets?.[0];
-        }
-      }
-
-      if (!activeWallet) throw new Error("Could not create wallet. Try again.");
-
-      // Step 6: Save and get balance
-      localStorage.setItem("bond_wid",    activeWallet.id);
-      localStorage.setItem("bond_waddr",  activeWallet.address || activeWallet.id);
-
-      setStatus("Fetching balance...");
-      const balRes = await fetch("/api/circle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "getBalance", walletId: activeWallet.id, userToken }),
-      }).then(r => r.json());
-
-      const usdc = balRes?.data?.tokenBalances?.find(b => b.token?.symbol === "USDC");
-      const bal = usdc?.amount || "0.00";
-      localStorage.setItem("bond_wbal", bal);
+      // Save to localStorage
+      localStorage.setItem("bond_waddr", address);
+      localStorage.setItem("bond_wbal",  balance);
+      localStorage.setItem("bond_wid",   address);
 
       setStep("done");
-      setTimeout(() => onConnected({ wallet: activeWallet, userToken, balance: bal }), 800);
-
+      setTimeout(() => onConnected({
+        wallet: { address, id: address },
+        balance,
+      }), 600);
     } catch(e) {
       setStep("error");
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const steps = [
-    { label: "Create secure account",  done: ["Authenticating...","Loading wallet...","Creating wallet...","Fetching balance...","connected"].includes(status) },
-    { label: "Get auth token",          done: ["Loading wallet...","Creating wallet...","Fetching balance...","connected"].includes(status) },
-    { label: "Load or create wallet",   done: ["Fetching balance...","connected"].includes(status) },
-    { label: "Fetch USDC balance",      done: status === "connected" },
-  ];
-
   return (
-    <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"#0f0f0f",border:"1px solid #1f1f1f",borderRadius:16,padding:28,width:"100%",maxWidth:360}}>
+    <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0 0"}}>
+      <div style={{background:"#0d0d0d",border:"1px solid #1f1f1f",borderRadius:"20px 20px 0 0",padding:"28px 24px 40px",width:"100%",maxWidth:480,animation:"slideUp 0.3s ease"}}>
+        <style>{`@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`}</style>
 
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
-          <div>
-            <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>Connect Wallet</div>
-            <div style={{fontSize:11,color:"#444",marginTop:2}}>Only you control your funds</div>
+        {/* Handle bar */}
+        <div style={{width:40,height:4,background:"#2a2a2a",borderRadius:2,margin:"0 auto 24px"}}/>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+          <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>Connect Wallet</div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.06)",border:"none",color:"#888",fontSize:16,cursor:"pointer",width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+
+        {step === "select" && (
+          <>
+            <div style={{fontSize:12,color:"#444",marginBottom:20,lineHeight:1.6}}>
+              Connect your existing Web3 wallet. Your keys, your funds — BOND never has custody.
+            </div>
+
+            {/* Network badge */}
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",background:"rgba(0,255,178,0.05)",border:"1px solid #00FFB222",borderRadius:10,marginBottom:20}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:"#00FFB2",boxShadow:"0 0 6px #00FFB2"}}/>
+              <span style={{fontSize:12,color:"#00FFB2",fontWeight:600}}>Arc Testnet · Chain 5042002</span>
+              <span style={{fontSize:10,color:"#444",marginLeft:"auto"}}>Will auto-switch</span>
+            </div>
+
+            {/* Wallet options */}
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:24}}>
+              {WALLETS.map(w => (
+                <button key={w.id} onClick={handleConnect}
+                  style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",background:"rgba(255,255,255,0.03)",border:"1px solid #1a1a1a",borderRadius:12,cursor:"pointer",transition:"all 0.2s",width:"100%",textAlign:"left"}}>
+                  <span style={{fontSize:24}}>{w.icon}</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{w.name}</div>
+                    <div style={{fontSize:11,color:"#444"}}>{w.desc}</div>
+                  </div>
+                  <span style={{marginLeft:"auto",color:"#333",fontSize:16}}>›</span>
+                </button>
+              ))}
+            </div>
+
+            <div style={{textAlign:"center",fontSize:11,color:"#2a2a2a"}}>
+              Non-custodial · You own your keys · Arc Testnet
+            </div>
+          </>
+        )}
+
+        {step === "connecting" && (
+          <div style={{textAlign:"center",padding:"40px 0"}}>
+            <div style={{fontSize:40,marginBottom:16}}>🔗</div>
+            <div style={{fontSize:15,color:"#fff",fontWeight:600,marginBottom:8}}>Connecting...</div>
+            <div style={{fontSize:12,color:"#444"}}>Approve in your wallet</div>
           </div>
-          <button onClick={onClose} style={{background:"none",border:"none",color:"#444",fontSize:20,cursor:"pointer"}}>×</button>
-        </div>
+        )}
 
-        <div style={{background:"rgba(0,255,178,0.05)",border:"1px solid #00FFB222",borderRadius:8,padding:"10px 14px",marginBottom:20,fontSize:11,color:"#00FFB2",lineHeight:1.6}}>
-          🔐 User-controlled wallet · Circle Programmable Wallets · Arc Testnet
-        </div>
-
-        <div style={{marginBottom:20}}>
-          {step === "connecting" && (
-            <div style={{fontSize:12,color:"#00FFB2",textAlign:"center",marginBottom:14}}>{status}</div>
-          )}
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {steps.map((s,i) => (
-              <div key={i} style={{display:"flex",alignItems:"center",gap:10,fontSize:12,
-                color: s.done ? "#00FFB2" : step==="connecting" && !s.done ? "#fff" : "#333"}}>
-                <span style={{color: s.done ? "#00FFB2" : "#333"}}>{s.done ? "✓" : "○"}</span>
-                {s.label}
-              </div>
-            ))}
+        {step === "switching" && (
+          <div style={{textAlign:"center",padding:"40px 0"}}>
+            <div style={{fontSize:40,marginBottom:16}}>⛓️</div>
+            <div style={{fontSize:15,color:"#fff",fontWeight:600,marginBottom:8}}>Switching to Arc Testnet</div>
+            <div style={{fontSize:12,color:"#444"}}>Adding network if needed...</div>
           </div>
-        </div>
+        )}
 
         {step === "done" && (
-          <div style={{textAlign:"center",marginBottom:20}}>
-            <div style={{fontSize:36,marginBottom:8}}>✓</div>
-            <div style={{fontSize:14,color:"#00FFB2",fontWeight:700}}>Wallet Connected!</div>
-            <div style={{fontSize:11,color:"#444",marginTop:6}}>You own this wallet on Arc Testnet</div>
+          <div style={{textAlign:"center",padding:"40px 0"}}>
+            <div style={{fontSize:48,marginBottom:12}}>✓</div>
+            <div style={{fontSize:15,color:"#00FFB2",fontWeight:700,marginBottom:6}}>Connected!</div>
+            <div style={{fontSize:12,color:"#444"}}>
+              {localStorage.getItem("bond_waddr")?.slice(0,10)}... on Arc Testnet
+            </div>
           </div>
         )}
 
-        {(step === "error" || localError) && (
-          <div style={{marginBottom:16,padding:12,background:"rgba(255,107,53,0.08)",border:"1px solid #FF6B3533",borderRadius:8}}>
-            <div style={{fontSize:12,color:"#FF6B35",fontWeight:600,marginBottom:4}}>Connection Failed</div>
-            <div style={{fontSize:11,color:"#cc5533",lineHeight:1.5,wordBreak:"break-all"}}>{localError}</div>
+        {step === "error" && (
+          <div>
+            <div style={{padding:16,background:"rgba(255,107,53,0.08)",border:"1px solid #FF6B3533",borderRadius:10,marginBottom:16}}>
+              <div style={{fontSize:13,color:"#FF6B35",fontWeight:600,marginBottom:6}}>Connection Failed</div>
+              <div style={{fontSize:12,color:"#cc5533",lineHeight:1.5}}>{error}</div>
+              {error.includes("No wallet") && (
+                <div style={{marginTop:12}}>
+                  <a href="https://metamask.io/download/" target="_blank" rel="noopener noreferrer"
+                    style={{display:"block",padding:"10px 14px",background:"rgba(255,255,255,0.04)",border:"1px solid #222",borderRadius:8,color:"#888",fontSize:12,textDecoration:"none",textAlign:"center"}}>
+                    Install MetaMask →
+                  </a>
+                </div>
+              )}
+            </div>
+            <button onClick={handleConnect}
+              style={{width:"100%",padding:"14px",background:"#00FFB2",border:"none",color:"#080808",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              Try Again
+            </button>
           </div>
         )}
-
-        {step !== "done" && (
-          <button onClick={handleConnect} disabled={step === "connecting"}
-            style={{width:"100%",padding:"14px",
-              background: step==="error" ? "transparent" : "#00FFB2",
-              border: step==="error" ? "1px solid #FF6B35" : "none",
-              color: step==="error" ? "#FF6B35" : "#080808",
-              borderRadius:8,fontSize:13,fontWeight:700,
-              letterSpacing:"0.08em",textTransform:"uppercase",
-              cursor: step==="connecting" ? "not-allowed" : "pointer",
-              opacity: step==="connecting" ? 0.7 : 1,
-            }}>
-            {step === "connecting" ? "Connecting..." : step === "error" ? "Retry" : "Connect Wallet"}
-          </button>
-        )}
-
-        <div style={{textAlign:"center",marginTop:14,fontSize:10,color:"#222"}}>
-          Powered by Circle · Arc Testnet · 5042002
-        </div>
       </div>
     </div>
   );
