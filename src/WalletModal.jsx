@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { connectWallet, getUSDCBalance } from "./wallet.js";
-import { connectWithWalletConnect } from "./WalletConnect.js";
 
 export default function WalletModal({ onClose, onConnected, onDisconnect, isConnected, currentAddress }) {
   const [step, setStep]     = useState(isConnected ? "connected" : "select");
@@ -14,7 +13,24 @@ export default function WalletModal({ onClose, onConnected, onDisconnect, isConn
     try {
       let address;
       if (method === "walletconnect") {
-        address = await connectWithWalletConnect();
+        // Load WalletConnect via CDN
+        if (!window.WalletConnectProvider) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js";
+            s.onload = resolve;
+            s.onerror = () => reject(new Error("Failed to load WalletConnect SDK"));
+            document.head.appendChild(s);
+          });
+        }
+        const provider = new window.WalletConnectProvider.default({
+          rpc: { 5042002: "https://rpc.arc.fun" },
+          chainId: 5042002,
+        });
+        await provider.enable();
+        window.ethereum = provider;
+        const accounts = await provider.request({ method: "eth_accounts" });
+        address = accounts[0];
       } else {
         address = await connectWallet();
       }
