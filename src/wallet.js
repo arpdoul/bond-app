@@ -1,71 +1,92 @@
-// Arc Testnet chain config
-export const ARC_TESTNET = {
-  id: 5042002,
-  name: "Arc Testnet",
-  network: "arc-testnet",
-  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.arc.fun"] } },
-  blockExplorers: { default: { name: "ArcScan", url: "https://testnet.arcscan.app" } },
-};
 
+// Arc Testnet config
+export const ARC_CHAIN_ID = "0x4CEF52"; // 5042002 in hex
 export const USDC_CONTRACT = "0x3600000000000000000000000000000000000000";
 
-// Add Arc Testnet to MetaMask
 export async function addArcNetwork() {
   await window.ethereum.request({
     method: "wallet_addEthereumChain",
     params: [{
-      chainId: "0x4CEF52",
+      chainId: ARC_CHAIN_ID,
       chainName: "Arc Testnet",
-      nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+      nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
       rpcUrls: ["https://rpc.arc.fun"],
       blockExplorerUrls: ["https://testnet.arcscan.app"],
     }],
   });
 }
 
-// Switch to Arc Testnet
 export async function switchToArc() {
   try {
     await window.ethereum.request({
       method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0x4CEF52" }],
+      params: [{ chainId: ARC_CHAIN_ID }],
     });
   } catch(e) {
-    if (e.code === 4902) await addArcNetwork();
-    else throw e;
+    if (e.code === 4902) {
+      await addArcNetwork();
+    } else {
+      throw e;
+    }
   }
 }
 
-// Connect wallet
 export async function connectWallet() {
-  if (!window.ethereum) throw new Error("No wallet found. Install MetaMask or use a Web3 browser.");
+  if (!window.ethereum) {
+    throw new Error("No Web3 wallet found. Please install MetaMask or use a Web3 browser.");
+  }
   const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-  await switchToArc();
+  if (!accounts || accounts.length === 0) throw new Error("No accounts found");
+  try {
+    await switchToArc();
+  } catch(e) {
+    console.warn("Could not switch to Arc testnet:", e.message);
+  }
   return accounts[0];
 }
 
-// Get USDC balance
 export async function getUSDCBalance(address) {
+  if (!address) return "0.0000";
   try {
+    // Try Arc RPC directly
     const data = "0x70a08231" + address.replace("0x","").padStart(64,"0");
-    const result = await window.ethereum.request({
-      method: "eth_call",
-      params: [{ to: USDC_CONTRACT, data }, "latest"],
+    const res = await fetch("https://rpc.arc.fun", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1,
+        method: "eth_call",
+        params: [{ to: USDC_CONTRACT, data }, "latest"],
+      }),
     });
-    const balance = parseInt(result, 16) / 1e6;
-    return balance.toFixed(4);
+    const json = await res.json();
+    if (json.result && json.result !== "0x") {
+      const raw = parseInt(json.result, 16);
+      if (!isNaN(raw)) return (raw / 1e6).toFixed(4);
+    }
+    // Fallback: try via window.ethereum
+    if (window.ethereum) {
+      const result = await window.ethereum.request({
+        method: "eth_call",
+        params: [{ to: USDC_CONTRACT, data }, "latest"],
+      });
+      if (result && result !== "0x") {
+        const raw = parseInt(result, 16);
+        if (!isNaN(raw)) return (raw / 1e6).toFixed(4);
+      }
+    }
+    return "0.0000";
   } catch(e) {
+    console.warn("Balance fetch failed:", e.message);
     return "0.0000";
   }
 }
 
-// Send USDC
 export async function sendUSDCWeb3(fromAddress, toAddress, amount) {
-  const amountWei = BigInt(Math.floor(parseFloat(amount) * 1e6)).toString(16).padStart(64,"0");
-  const to = toAddress.replace("0x","").padStart(64,"0");
-  const data = "0xa9059cbb" + to + amountWei;
-
+  if (!window.ethereum) throw new Error("No wallet connected");
+  const amountHex = Math.floor(parseFloat(amount) * 1e6).toString(16).padStart(64,"0");
+  const toHex = toAddress.replace("0x","").padStart(64,"0");
+  const data = "0xa9059cbb" + toHex + amountHex;
   const txHash = await window.ethereum.request({
     method: "eth_sendTransaction",
     params: [{
@@ -76,12 +97,4 @@ export async function sendUSDCWeb3(fromAddress, toAddress, amount) {
     }],
   });
   return txHash;
-}
-
-// Listen for account/chain changes
-export function onAccountChange(cb) {
-  window.ethereum?.on("accountsChanged", cb);
-}
-export function onChainChange(cb) {
-  window.ethereum?.on("chainChanged", cb);
 }
