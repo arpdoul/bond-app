@@ -361,9 +361,9 @@ export default function BondApp() {
           {/* WALLET */}
           {walletConnected
             ?<div style={{display:"flex",gap:4,alignItems:"center"}}>
-               <div style={{fontSize:9,color:"#555",fontFamily:"monospace",padding:"4px 8px",border:"1px solid #1a1a1a",borderRadius:6,maxWidth:85,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+               <button onClick={()=>setShowModal(true)} style={{fontSize:9,color:"#555",fontFamily:"monospace",padding:"4px 8px",border:"1px solid #1a1a1a",borderRadius:6,maxWidth:85,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",background:"transparent",cursor:"pointer"}}>
                  {walletAddr.slice(0,6)}...<span style={{color:"#00FFB2"}}> {parseFloat(balance).toFixed(1)}</span>
-               </div>
+               </button>
                <button onClick={()=>setShowPay(true)} style={{background:"rgba(0,255,178,0.1)",border:"1px solid #00FFB233",color:"#00FFB2",fontSize:10,fontWeight:700,padding:"5px 10px",borderRadius:6,cursor:"pointer"}}>Pay</button>
              </div>
             :<button onClick={()=>setShowModal(true)} style={{background:"#00FFB2",border:"none",color:"#080808",fontSize:11,fontWeight:700,padding:"7px 14px",borderRadius:7,cursor:"pointer"}}>
@@ -486,7 +486,17 @@ export default function BondApp() {
         <div style={{fontSize:9,color:"#222",fontFamily:"monospace"}}>Arc testnet · 5042002</div>
       </footer>
 
-      {showModal&&<WalletModal onClose={()=>setShowModal(false)} onConnected={handleConnected}/>}
+      {showModal&&<WalletModal
+        onClose={()=>setShowModal(false)}
+        onConnected={handleConnected}
+        isConnected={walletConnected}
+        currentAddress={walletAddr}
+        onDisconnect={()=>{
+          setWalletConnected(false);
+          setWalletAddr("");
+          setBalance("0.00");
+        }}
+      />}
       {showPay&&<PayPanel onClose={()=>setShowPay(false)}/>}
     </div>
   );
