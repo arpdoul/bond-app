@@ -350,7 +350,7 @@ export default function BondApp() {
               </span>
             </button>
             {showMenu&&(
-              <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"6px",minWidth:160,zIndex:999,boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
+              <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:"#111",border:"1px solid #222",borderRadius:12,padding:"6px",minWidth:160,zIndex:999,overflowY:"auto",maxHeight:"80vh",boxShadow:"0 16px 40px rgba(0,0,0,0.9)"}}>
                 {TABS.map(t=>(
                   <button key={t.id} onClick={()=>{setTab(t.id);setShowMenu(false);}}
                     style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:tab===t.id?"rgba(0,255,178,0.1)":"none",border:"none",cursor:"pointer",fontFamily:"sans-serif",fontSize:13,fontWeight:600,padding:"11px 14px",borderRadius:8,color:tab===t.id?"#00FFB2":"#888",textAlign:"left",marginBottom:2}}>
