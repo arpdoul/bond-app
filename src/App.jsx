@@ -31,11 +31,14 @@ const TRADE_PAIRS = [
   { symbol:"ARB/USDC", base:"arbitrum", color:"#28A0F0" },
 ];
 const TABS = [
-  { id:"agent",     label:"Agent",     icon:"⟁" },
-  { id:"trade",     label:"Trade",     icon:"◎" },
-  { id:"dashboard", label:"Dashboard", icon:"⬡" },
-  { id:"stream",    label:"Stream",    icon:"≋" },
-  { id:"settle",    label:"Settle",    icon:"◈" },
+    { id:"agent",     label:"Agent",      icon:"▲" },
+    { id:"trade",     label:"Trade",      icon:"◎" },
+    { id:"dashboard", label:"Dashboard",  icon:"○" },
+    { id:"stream",    label:"Stream",     icon:"≋" },
+    { id:"settle",    label:"Settle",     icon:"◇" },
+    { id:"agentnet",  label:"AgentNet",   icon:"⛓" },
+    { id:"streampay", label:"Stream Pay", icon:"⏱" },
+    { id:"creator",   label:"Creator",    icon:"📄" },
 ];
 
 function generateTxHash() {
