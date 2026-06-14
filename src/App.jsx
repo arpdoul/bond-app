@@ -481,6 +481,108 @@ export default function BondApp() {
             </div>
           </div>
         )}
+
+              {tab==="agentnet"&&(
+                <div style={{padding:"16px"}}>
+                  <h2 style={{color:"#00FFB2",marginBottom:"8px"}}>⛓ AgentNet</h2>
+                  <p style={{color:"#888",fontSize:"13px",marginBottom:"12px"}}>Orchestrator pays DataCollector + Summarizer in USDC per task</p>
+                  <textarea id="agentTaskInput" placeholder="What is the USDC market outlook for AI agents?" style={{width:"100%",background:"#1a1a2e",color:"#fff",border:"1px solid #00FFB2",borderRadius:"8px",padding:"10px",fontSize:"13px",minHeight:"80px",boxSizing:"border-box",fontFamily:"sans-serif"}} />
+                  <button onClick={async()=>{
+                    const task=document.getElementById("agentTaskInput").value;
+                    const out=document.getElementById("agentOut");
+                    const chain=document.getElementById("agentChain");
+                    if(!task)return;
+                    out.innerText="🤖 Agents working...";
+                    chain.innerHTML="";
+                    try{
+                      const r=await fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/agentnet/task",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task})});
+                      const d=await r.json();
+                      out.innerText=d.answer||d.error;
+                      (d.paymentChain||[]).forEach((s,i)=>{
+                        const div=document.createElement("div");
+                        div.style.cssText="background:#1a1a2e;border-left:3px solid #00FFB2;padding:8px;margin-bottom:6px;border-radius:6px";
+                        div.innerHTML=`<div style='color:#00FFB2;font-size:12px;font-weight:bold'>${i+1}. ${s.step}</div><div style='color:#fff;font-size:12px'>${s.amount} ${s.note?'· '+s.note:''}</div>`;
+                        chain.appendChild(div);
+                      });
+                    }catch(e){out.innerText="Error: "+e.message;}
+                  }} style={{width:"100%",marginTop:"8px",background:"#00FFB2",color:"#000",border:"none",borderRadius:"8px",padding:"12px",fontWeight:"bold",fontSize:"14px",cursor:"pointer"}}>▶ Run Task ($0.003 USDC)</button>
+                  <div id="agentChain" style={{marginTop:"12px"}}></div>
+                  <div id="agentOut" style={{marginTop:"12px",color:"#fff",fontSize:"13px",lineHeight:"1.5",background:"#1a1a2e",borderRadius:"8px",padding:"12px",minHeight:"40px"}}></div>
+                </div>
+              )}
+              {tab==="streampay"&&(
+                <div style={{padding:"16px",textAlign:"center"}}>
+                  <h2 style={{color:"#00FFB2",marginBottom:"8px"}}>⏱ Stream Pay</h2>
+                  <p style={{color:"#888",fontSize:"13px",marginBottom:"16px"}}>Pay by the second. Stop anytime. Instant USDC settlement.</p>
+                  <div style={{background:"#1a1a2e",borderRadius:"12px",padding:"20px",marginBottom:"16px"}}>
+                    <div style={{color:"#888",fontSize:"13px"}}>Rate</div>
+                    <div style={{color:"#00FFB2",fontSize:"24px",fontWeight:"bold"}}>$0.001 / second</div>
+                  </div>
+                  <div id="streamDisplay" style={{background:"#0d0d1a",borderRadius:"12px",padding:"24px",marginBottom:"16px",display:"none"}}>
+                    <div id="streamSecs" style={{color:"#fff",fontSize:"48px",fontWeight:"bold"}}>0s</div>
+                    <div id="streamAmt" style={{color:"#00FFB2",fontSize:"22px"}}>$0.000000 USDC</div>
+                  </div>
+                  <button id="streamBtn" onClick={()=>{
+                    const btn=document.getElementById("streamBtn");
+                    const disp=document.getElementById("streamDisplay");
+                    const secs=document.getElementById("streamSecs");
+                    const amt=document.getElementById("streamAmt");
+                    const receipt=document.getElementById("streamReceipt");
+                    if(!window._streamId){
+                      fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/stream/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userWallet:"0x000",service:"AI Compute"})})
+                      .then(r=>r.json()).then(d=>{
+                        window._streamId=d.sessionId;
+                        disp.style.display="block";
+                        btn.innerText="⏹ Stop & Settle";
+                        btn.style.background="#ff4444";
+                        btn.style.color="#fff";
+                        window._streamIv=setInterval(()=>{
+                          fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/stream/status/"+window._streamId)
+                          .then(r=>r.json()).then(s=>{secs.innerText=s.elapsed+"s";amt.innerText="$"+s.accumulated+" USDC";});
+                        },1000);
+                      });
+                    } else {
+                      clearInterval(window._streamIv);
+                      fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/stream/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:window._streamId})})
+                      .then(r=>r.json()).then(d=>{
+                        receipt.innerHTML="✅ "+d.elapsed+"s · $"+d.totalOwed+" USDC settled";
+                        receipt.style.display="block";
+                        window._streamId=null;
+                        btn.innerText="▶ Start Stream";
+                        btn.style.background="#00FFB2";
+                        btn.style.color="#000";
+                        disp.style.display="none";
+                      });
+                    }
+                  }} style={{width:"100%",background:"#00FFB2",color:"#000",border:"none",borderRadius:"8px",padding:"14px",fontWeight:"bold",fontSize:"16px",cursor:"pointer"}}>▶ Start Stream</button>
+                  <div id="streamReceipt" style={{display:"none",marginTop:"12px",background:"#1a1a2e",borderRadius:"8px",padding:"12px",color:"#00FFB2",fontWeight:"bold"}}></div>
+                </div>
+              )}
+              {tab==="creator"&&(
+                <div style={{padding:"16px"}}>
+                  <h2 style={{color:"#00FFB2",marginBottom:"4px"}}>📄 Creator Economy</h2>
+                  <p style={{color:"#888",fontSize:"13px",marginBottom:"12px"}}>Pay $0.05 once. Unlock forever. No subscription.</p>
+                  <div id="creatorLocked" style={{background:"#1a1a2e",borderRadius:"12px",padding:"16px"}}>
+                    <h3 style={{color:"#fff",fontSize:"15px",marginBottom:"8px"}}>The Autonomous Agent Economy</h3>
+                    <p style={{color:"#888",fontSize:"13px",marginBottom:"8px"}}>The shift from subscriptions to nanopayments is the biggest change in how value moves online since credit cards...</p>
+                    <button onClick={async()=>{
+                      const wallet=window._connectedWallet||"0x0502";
+                      try{
+                        await fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/creator/pay",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({wallet,txId:"demo-"+Date.now()})});
+                        const r=await fetch((import.meta.env.VITE_API_URL||"https://bond-backend-xhzx.onrender.com")+"/api/creator/article?wallet="+wallet);
+                        const d=await r.json();
+                        document.getElementById("creatorLocked").style.display="none";
+                        document.getElementById("creatorUnlocked").style.display="block";
+                        document.getElementById("creatorContent").innerText=d.content;
+                      }catch(e){alert("Error: "+e.message);}
+                    }} style={{width:"100%",background:"#00FFB2",color:"#000",border:"none",borderRadius:"8px",padding:"12px",fontWeight:"bold",fontSize:"14px",cursor:"pointer"}}>🔓 Unlock for $0.05 USDC</button>
+                  </div>
+                  <div id="creatorUnlocked" style={{display:"none",background:"#1a1a2e",borderRadius:"12px",padding:"16px"}}>
+                    <div style={{color:"#00FFB2",fontSize:"12px",marginBottom:"8px"}}>✅ Unlocked</div>
+                    <pre id="creatorContent" style={{color:"#fff",fontSize:"12px",lineHeight:"1.6",whiteSpace:"pre-wrap"}}></pre>
+                  </div>
+                </div>
+              )}
       </div>
 
       {/* FOOTER */}
